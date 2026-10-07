@@ -11,7 +11,8 @@ const LOOKS = [
 ];
 
 export function createVillagers(scene, terrain, roads, square, collision) {
-  const routes = roads.lines.filter(l => l.kind !== 'path').map(l => l.pts.filter(p => Math.hypot(p.x, p.z) < 330)).filter(r => r.length > 8);
+  const inVillage = (p) => roads.layout && roads.layout.has ? roads.layout.village(p.x, p.z) > 0.3 && Math.hypot(p.x, p.z) < 450 : Math.hypot(p.x, p.z) < 330;
+  const routes = roads.lines.filter(l => ['main', 'street', 'lane'].includes(l.kind)).map(l => l.pts.filter(inVillage)).filter(r => r.length > 8);
   const people = [];
   for (let i = 0; i < 16 && routes.length; i++) {
     const g = person(LOOKS[i % LOOKS.length]);

@@ -94,23 +94,36 @@ export function createTrees(scene, terrain, { houses, roads }) {
     return true;
   };
   const N = (x, z) => Math.sin(x * 0.013 + Math.sin(z * 0.009) * 3) * Math.cos(z * 0.011 + Math.sin(x * 0.007) * 3); // рощи и поляны
-  // сады в селе
-  for (let i = 0; i < 2600 && spots.fruit.length + spots.walnut.length < 420; i++) {
-    const a = rnd() * 6.28, r = Math.sqrt(rnd()) * 400, x = Math.cos(a) * r, z = Math.sin(a) * r;
+  const L = roads.layout && roads.layout.has ? roads.layout : null;
+  const village = (x, z) => L ? L.village(x, z) : Math.max(0, 1 - Math.hypot(x, z) / 400);
+  // сады в селе (во дворах, между домами) — по плотности застройки с карты
+  for (let i = 0; i < 20000 && spots.fruit.length + spots.walnut.length < 650; i++) {
+    const x = (rnd() - 0.5) * 1960, z = (rnd() - 0.5) * 1960, v = village(x, z);
+    if (v < 0.15 || rnd() > v) continue;
     add(rnd() < 0.8 ? 'fruit' : 'walnut', x, z, 0.8 + rnd() * 0.5);
+  }
+  // лес в оврагах — там, где он на спутниковой карте (густо, разные породы)
+  if (L) for (let i = 0; i < 60000 && spots.pine.length + spots.birch.length < 2600; i++) {
+    const x = (rnd() - 0.5) * 1960, z = (rnd() - 0.5) * 1960, f = L.forest(x, z);
+    if (f < 0.35 || rnd() > f) continue;
+    const r = rnd(), kind = r < 0.4 ? 'pine' : r < 0.65 ? 'birch' : r < 0.85 ? 'walnut' : 'bush';
+    add(kind, x, z, 0.8 + rnd() * 0.7);
   }
   // тополя вдоль улиц
   for (const { kind, pts } of roads.lines) {
-    if (kind === 'path') continue;
+    if (kind !== 'main' && kind !== 'street' && kind !== 'river') continue;   // тополя — вдоль дорог и речки
     for (let j = 0; j < pts.length; j += 3) {
-      const p = pts[j]; if (Math.hypot(p.x, p.z) > 450 || rnd() < 0.7) continue;
+      const p = pts[j]; if (village(p.x, p.z) < 0.08 && kind !== 'river' || rnd() < (kind === 'river' ? 0.55 : 0.7)) continue;
       const q = pts[Math.min(pts.length - 1, j + 1)], a = Math.atan2(q.z - p.z, q.x - p.x), s = rnd() < 0.5 ? 1 : -1, off = 5 + rnd() * 3;
       add('poplar', p.x - Math.sin(a) * off * s, p.z + Math.cos(a) * off * s, 0.85 + rnd() * 0.45);
     }
   }
   // луга и склоны: орехи, берёзы, кусты; выше — сосновые рощи
+  // (на террасированных склонах, видных на карте, деревьев почти нет — там луга; рощи — за краем карты)
   for (let i = 0; i < 9000; i++) {
     const a = rnd() * 6.28, r = 300 + rnd() * 660, x = Math.cos(a) * r, z = Math.sin(a) * r, n = N(x, z), h = terrain.heightAt(x, z);
+    if (L && L.covered(x, z) && rnd() < 0.92) continue;
+    if (village(x, z) > 0.1) continue;
     if (n < 0.1) { if (rnd() < 0.04) add('bush', x, z, 0.7 + rnd() * 0.8); continue; }
     const kind = h > 150 && rnd() < 0.75 ? 'pine' : rnd() < 0.3 ? 'birch' : rnd() < 0.5 ? 'walnut' : 'bush';
     if (rnd() < n * 0.35) add(kind, x, z, 0.75 + rnd() * 0.6);

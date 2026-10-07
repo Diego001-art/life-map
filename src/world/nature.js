@@ -22,7 +22,7 @@ export function createDetails(scene, terrain, houses, roads) {
   const gc = ['#4f7f34', '#5f8a3a', '#46752f', '#7a8a44', '#8a9450', '#6a7f3a'].map(c => new THREE.Color(c));
   let n = 0;
   for (let i = 0; i < 30000 && n < 14000; i++) {
-    const a = Math.random() * 6.28, r = Math.sqrt(Math.random()) * 650, x = Math.cos(a) * r, z = Math.sin(a) * r;
+    const a = Math.random() * 6.28, r = Math.sqrt(Math.random()) * 900, x = Math.cos(a) * r, z = Math.sin(a) * r;
     if (roads.distToRoad(x, z) < 0.5 || nearHouse(x, z, 0.5)) continue;
     dummy.position.set(x, terrain.heightAt(x, z), z);
     dummy.rotation.set((Math.random() - 0.5) * 0.4, Math.random() * 6, (Math.random() - 0.5) * 0.4);
@@ -35,17 +35,18 @@ export function createDetails(scene, terrain, houses, roads) {
   const walls = new THREE.InstancedMesh(new THREE.BoxGeometry(2.2, 0.75, 0.45), pbr('rock', { color: '#cfc6b4', normal: 1.6 }), 6000); // ограды из бутового камня
   const colliders = [];
   walls.castShadow = walls.receiveShadow = true; n = 0;
+  const inVillage = (x, z) => roads.layout && roads.layout.has ? roads.layout.village(x, z) > 0.2 : Math.hypot(x, z) < 360;
   for (const { kind, pts } of roads.lines) {
-    if (kind === 'path') continue;
-    const off = (kind === 'main' ? 2.75 : 1.8) + 0.9;
+    if (!['main', 'street', 'lane'].includes(kind)) continue;
+    const off = { main: 2.75, street: 2, lane: 1.5 }[kind] + 0.9;
     for (let i = 0; i < pts.length - 1 && n < 6000; i++) {
       const a = pts[i], b = pts[i + 1];
-      if (Math.hypot(a.x, a.z) > 360) continue;
+      if (!inVillage(a.x, a.z) || Math.random() < 0.35) continue; // ограды кусками — между ними ворота и проходы во дворы
       const ang = Math.atan2(b.z - a.z, b.x - a.x), L = Math.hypot(b.x - a.x, b.z - a.z);
       for (const side of [1, -1]) {
         const x = (a.x + b.x) / 2 - Math.sin(ang) * off * side, z = (a.z + b.z) / 2 + Math.cos(ang) * off * side;
         const ex = Math.cos(ang) * L / 2, ez = Math.sin(ang) * L / 2; // концы ограды не должны заходить на другую дорогу
-        if (nearHouse(x, z, 1.5) || roads.distToRoad(x, z) < 0.3 || roads.distToRoad(x + ex, z + ez) < 0.3 || roads.distToRoad(x - ex, z - ez) < 0.3) continue;
+        if (nearHouse(x, z, 1.5) || roads.distToRoad(x, z) < 0.7 || roads.distToRoad(x + ex, z + ez) < 0.7 || roads.distToRoad(x - ex, z - ez) < 0.7) continue;
         dummy.position.set(x, terrain.heightAt(x, z) + 0.2, z);
         dummy.rotation.set(0, -ang, 0); dummy.scale.set(L / 2.15, 0.8 + Math.random() * 0.4, 1);
         dummy.updateMatrix(); walls.setMatrixAt(n++, dummy.matrix);
@@ -70,7 +71,8 @@ export function createDetails(scene, terrain, houses, roads) {
     for (let e = 0; e < 3; e++) {
       const A = corners[e], Bc = corners[e + 1], L = Math.hypot(Bc.x - A.x, Bc.z - A.z), k = Math.max(1, Math.round(L / 2.2));
       if (houses.some(o => o !== h && Math.hypot(o.center.x - (A.x + Bc.x) / 2, o.center.z - (A.z + Bc.z) / 2) < o.radius + 1)) continue;
-      if (roads.distToRoad((A.x + Bc.x) / 2, (A.z + Bc.z) / 2) < 1) continue;
+      let crosses = false; for (let t = 0; t <= 1.001; t += 0.1) if (roads.distToRoad(A.x + (Bc.x - A.x) * t, A.z + (Bc.z - A.z) * t) < 0.8) crosses = true;
+      if (crosses) continue; // забор не перегораживает дороги и переулки
       let prev = null;
       for (let i = 0; i <= k; i++) {
         const x = A.x + (Bc.x - A.x) * i / k, z = A.z + (Bc.z - A.z) * i / k, y = terrain.heightAt(x, z), hh = 0.9 + Math.random() * 0.4;

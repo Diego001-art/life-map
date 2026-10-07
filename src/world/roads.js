@@ -2,14 +2,16 @@
 //  - главная дорога проходит через центр села от края до края карты;
 //  - улицы расходятся от неё по селу;
 //  - тропинки ведут к особым местам (пещера, камень нарта, башня, родник, пастбище).
-// Если OpenStreetMap загрузился — его улицы рисуются тоже.
+// Если есть планировка со спутниковой карты (data/layout) — главные дороги, улицы и переулки берутся с неё,
+// а тропинки к особым местам прокладываются по склонам до ближайшей дороги. Если OpenStreetMap загрузился — его улицы рисуются тоже.
 import * as THREE from 'three';
 import { tex } from './textures.js';
 
 const N = 161;            // размер сетки поиска пути (как карта высот)
 const STYLES = {
   main:   { width: 5.5, color: '#8f8676' },  // главная дорога — серый щебень
-  street: { width: 3.6, color: '#9d917c' },  // улицы села
+  street: { width: 4, color: '#9d917c' },    // улицы села
+  lane:   { width: 3, color: '#a69a86' },    // переулки
   path:   { width: 1.5, color: '#a88d63' },  // тропинки — утоптанная земля
 };
 
@@ -51,7 +53,7 @@ function smooth(pts, iters = 3) {
   return out;
 }
 
-export function createRoads(scene, terrain, places, osmLines = []) {
+export function createRoads(scene, terrain, places, osmLines = [], layout = null) {
   const size = terrain.size, step = size / (N - 1);
   const H = new Float32Array(N * N);
   for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) H[r * N + c] = terrain.heightAt(-size / 2 + c * step, -size / 2 + r * step);
@@ -62,6 +64,13 @@ export function createRoads(scene, terrain, places, osmLines = []) {
   const lines = []; // { kind, pts }
   const add = (kind, cells) => { if (!cells || cells.length < 2) return; cells.forEach(i => onRoad[i] = 1); lines.push({ kind, pts: smooth(cells.map(toXZ)) }); };
 
+  if (layout && layout.lines.length) {
+    // планировка по спутниковой карте
+    for (const l of layout.lines) {
+      lines.push({ kind: l.kind, pts: l.pts });
+      if (l.kind !== 'river') for (const p of l.pts) onRoad[cell(p.x, p.z)] = 1;
+    }
+  } else {
   // 1) Главная дорога: от самой низкой точки края карты (вход из долины) через центр к другому краю.
   const edge = [];
   for (let i = 4; i < N - 4; i += 2) edge.push(i, (N - 1) * N + i, i * N, i * N + N - 1);
@@ -78,6 +87,7 @@ export function createRoads(scene, terrain, places, osmLines = []) {
     const a = k / 9 * Math.PI * 2 + 0.3, r = 160 + (k % 3) * 70;
     add('street', findPath(H, step, cell(Math.cos(a) * r, Math.sin(a) * r), (u) => onRoad[u], 2.5));
   }
+  }
   // 3) Тропинки к особым местам.
   for (const p of Object.values(places)) {
     if (!onRoad[cell(p.pos.x, p.pos.z)]) add('path', findPath(H, step, cell(p.pos.x, p.pos.z), (u) => onRoad[u], 3));
@@ -89,7 +99,7 @@ export function createRoads(scene, terrain, places, osmLines = []) {
   // Каждая точка ленты кладётся по высоте земли (поэтому дорога не висит и не уходит в склон).
   const samples = []; // точки дорог для быстрых проверок «далеко ли до дороги»
   const roadTex = tex('road');
-  for (const kind of ['path', 'street', 'main']) {
+  for (const kind of ['path', 'lane', 'street', 'main']) {
     const st = STYLES[kind], verts = [], uvs = [], idx = [];
     const ACROSS = 4; // поперёк ленты 5 точек — лента повторяет изгибы склона
     for (const { kind: k, pts } of lines) {
@@ -108,9 +118,9 @@ export function createRoads(scene, terrain, places, osmLines = []) {
         }
         if (i) for (let j = 0; j < ACROSS; j++) {
           const r0 = base + (i - 1) * (ACROSS + 1) + j, r1 = base + i * (ACROSS + 1) + j;
-          idx.push(r0, r1, r0 + 1, r0 + 1, r1, r1 + 1);
+          idx.push(r0, r0 + 1, r1, r0 + 1, r1 + 1, r1) // лицевой стороной вверх;
         }
-        if (i < pts.length - 1) samples.push({ x: p.x, z: p.z, w: st.width / 2, kind });
+        samples.push({ x: p.x, z: p.z, w: st.width / 2, kind });
       }
     }
     if (!verts.length) continue;
@@ -118,14 +128,17 @@ export function createRoads(scene, terrain, places, osmLines = []) {
     g.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
     g.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
     g.setIndex(idx); g.computeVertexNormals();
-    const tint = kind === 'path' ? '#c9ae86' : kind === 'street' ? '#e8e0d4' : '#ffffff';
+    const tint = kind === 'path' ? '#c9ae86' : kind === 'lane' ? '#d8cbb4' : kind === 'street' ? '#e8e0d4' : '#ffffff';
     const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({
       map: roadTex.map, normalMap: roadTex.normalMap, color: tint, roughness: 0.95, transparent: true, depthWrite: false,
-      polygonOffset: true, polygonOffsetFactor: -2 - (kind === 'main' ? 2 : kind === 'street' ? 1 : 0), polygonOffsetUnits: -4,
+      polygonOffset: true, polygonOffsetFactor: -2 - (kind === 'main' ? 3 : kind === 'street' ? 2 : kind === 'lane' ? 1 : 0), polygonOffsetUnits: -4,
     }));
     m.receiveShadow = true; m.renderOrder = 1;
     scene.add(m);
   }
+
+  // речка тоже «занята»: дома, деревья и ограды держатся от неё подальше
+  for (const { kind, pts } of lines) if (kind === 'river') for (const p of pts) samples.push({ x: p.x, z: p.z, w: 2.5, kind });
 
   // Сетка для быстрых проверок расстояния до дороги.
   const grid = new Map(), G = 20, key = (x, z) => Math.floor(x / G) + ',' + Math.floor(z / G);
@@ -136,5 +149,5 @@ export function createRoads(scene, terrain, places, osmLines = []) {
     for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) for (const s of grid.get((gx + i) + ',' + (gz + j)) || []) best = Math.min(best, Math.hypot(s.x - x, s.z - z) - s.w);
     return best;
   }
-  return { lines, distToRoad };
+  return { lines, distToRoad, layout };
 }

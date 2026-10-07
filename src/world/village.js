@@ -7,16 +7,24 @@ import { pbr } from './textures.js';
 
 const mat = (c, extra = {}) => new THREE.MeshLambertMaterial({ color: c, flatShading: true, ...extra });
 
-// Помощник: копит матрицы, потом создаёт один InstancedMesh.
-function batch(scene, geo, material, { shadow = true } = {}) {
-  const list = [];
+// Помощник: копит матрицы, потом создаёт InstancedMesh — по одному на участок мира 256×256 м.
+// Так работают отсечение невидимого (frustum culling) и уровни детализации (LOD): мелкие детали дальних участков скрываются.
+const CH = 256, CHUNKS = new Map(); // ключ участка → { cx, cz, meshes: [] }
+const chunkKey = (x, z) => Math.floor((x + 1024) / CH) + ':' + Math.floor((z + 1024) / CH);
+function batch(scene, geo, material, { shadow = true, lod = 380 } = {}) {
+  const lists = new Map(), v = new THREE.Vector3();
   return {
-    add(m, color) { list.push([m.clone(), color]); },
+    add(m, color) { v.setFromMatrixPosition(m); const k = chunkKey(v.x, v.z); if (!lists.has(k)) lists.set(k, []); lists.get(k).push([m.clone(), color]); },
     build() {
-      if (!list.length) return null;
-      const im = new THREE.InstancedMesh(geo, material, list.length);
-      list.forEach(([m, c], i) => { im.setMatrixAt(i, m); if (c) im.setColorAt(i, c); });
-      im.castShadow = shadow; im.receiveShadow = true; scene.add(im); return im;
+      for (const [k, list] of lists) {
+        const im = new THREE.InstancedMesh(geo, material, list.length);
+        list.forEach(([m, c], i) => { im.setMatrixAt(i, m); if (c) im.setColorAt(i, c); });
+        im.computeBoundingSphere();
+        im.castShadow = shadow; im.receiveShadow = true; im.userData.lod = lod; scene.add(im);
+        const [i, j] = k.split(':').map(Number);
+        if (!CHUNKS.has(k)) CHUNKS.set(k, { cx: i * CH - 1024 + CH / 2, cz: j * CH - 1024 + CH / 2, meshes: [] });
+        CHUNKS.get(k).meshes.push(im);
+      }
     },
   };
 }
@@ -31,26 +39,26 @@ export function createVillage(scene, terrain, houses, roads, effects) {
   const glassDark = new THREE.MeshStandardMaterial({ color: '#1e252c', roughness: 0.1, metalness: 0.3 }); // тёмная глубина окна, без интерьера
   const verandaGlass = new THREE.MeshStandardMaterial({ color: '#5f7482', emissive: '#ffb057', emissiveIntensity: 0, roughness: 0.08, metalness: 0.45 }); // стекло веранды отражает небо
   const B = {
-    frame: batch(scene, new THREE.BoxGeometry(1.3, 1.45, 0.14), pbr('planks', { color: '#6a5444' })),
-    lit: batch(scene, new THREE.PlaneGeometry(1.05, 1.2), glassLit, { shadow: false }),
-    dark: batch(scene, new THREE.PlaneGeometry(1.05, 1.2), glassDark, { shadow: false }),
-    shutter: batch(scene, new THREE.BoxGeometry(0.5, 1.4, 0.06), pbr('planks', { color: '#ffffff' })),
-    door: batch(scene, new THREE.BoxGeometry(1.15, 2.15, 0.16), pbr('planks', { color: '#9a7656' })),
-    hinge: batch(scene, new THREE.BoxGeometry(0.5, 0.06, 0.04), new THREE.MeshStandardMaterial({ color: '#2a2622', roughness: 0.5, metalness: 0.8 }), { shadow: false }),
-    step: batch(scene, new THREE.BoxGeometry(1.5, 0.3, 0.7), pbr('rock', { color: '#d0c8b8' })),
-    slab: batch(scene, new THREE.BoxGeometry(1, 0.18, 1.7), pbr('planks', { color: '#a08060' })),
-    rail: batch(scene, new THREE.BoxGeometry(1, 0.9, 0.08), pbr('plaster')),        // нижняя часть веранды (побелка)
-    vglass: batch(scene, new THREE.BoxGeometry(1, 1.3, 0.05), verandaGlass, { shadow: false }), // остеклённая веранда
-    mullion: batch(scene, new THREE.BoxGeometry(0.08, 1.35, 0.1), pbr('plaster')),          // белые переплёты рам
-    post: batch(scene, new THREE.BoxGeometry(0.14, 2.6, 0.14), pbr('planks', { color: '#8a6a4a' })),
-    chimney: batch(scene, new THREE.BoxGeometry(0.7, 1.6, 0.7), pbr('masonry', { color: '#c8bfae' })),
+    frame: batch(scene, new THREE.BoxGeometry(1.3, 1.45, 0.14), pbr('planks', { color: '#6a5444' }), { lod: 450 }),
+    lit: batch(scene, new THREE.PlaneGeometry(1.05, 1.2), glassLit, { shadow: false , lod: 2000 }),
+    dark: batch(scene, new THREE.PlaneGeometry(1.05, 1.2), glassDark, { shadow: false , lod: 450 }),
+    shutter: batch(scene, new THREE.BoxGeometry(0.5, 1.4, 0.06), pbr('planks', { color: '#ffffff' }), { lod: 300 }),
+    door: batch(scene, new THREE.BoxGeometry(1.15, 2.15, 0.16), pbr('planks', { color: '#9a7656' }), { lod: 350 }),
+    hinge: batch(scene, new THREE.BoxGeometry(0.5, 0.06, 0.04), new THREE.MeshStandardMaterial({ color: '#2a2622', roughness: 0.5, metalness: 0.8 }), { shadow: false , lod: 120 }),
+    step: batch(scene, new THREE.BoxGeometry(1.5, 0.3, 0.7), pbr('rock', { color: '#d0c8b8' }), { lod: 200 }),
+    slab: batch(scene, new THREE.BoxGeometry(1, 0.18, 1.7), pbr('planks', { color: '#a08060' }), { lod: 700 }),
+    rail: batch(scene, new THREE.BoxGeometry(1, 0.9, 0.08), pbr('plaster'), { lod: 700 }),        // нижняя часть веранды (побелка)
+    vglass: batch(scene, new THREE.BoxGeometry(1, 1.3, 0.05), verandaGlass, { shadow: false , lod: 900 }), // остеклённая веранда
+    mullion: batch(scene, new THREE.BoxGeometry(0.08, 1.35, 0.1), pbr('plaster'), { lod: 400 }),          // белые переплёты рам
+    post: batch(scene, new THREE.BoxGeometry(0.14, 2.6, 0.14), pbr('planks', { color: '#8a6a4a' }), { lod: 450 }),
+    chimney: batch(scene, new THREE.BoxGeometry(0.7, 1.6, 0.7), pbr('masonry', { color: '#c8bfae' }), { lod: 900 }),
   };
   const shutterCols = ['#3f6f9a', '#4f7a4f', '#7a4a3a', '#5b3b22', '#6a7d8c'].map(c => new THREE.Color(c));
   const chimneys = [], colliders = [];
   const circ = (x, z, r, top = 1e9) => colliders.push({ type: 'circle', x, z, r, top });
   const boxc = (cx, cz, ang, w, d, top = 1e9) => colliders.push({ type: 'box', cx, cz, ang, w, d, top });
   for (const h of houses) {
-    if (!h.box) continue;
+    if (!h.box || h.shed) continue;
     const { ang, w, d, cx, cz } = h.box, long = w >= d, L = long ? w : d, D = long ? d : w;
     const dirA = long ? ang : ang + Math.PI / 2;               // вдоль длинной стены
     const ux = Math.cos(dirA), uz = Math.sin(dirA), nx = -uz, nz = ux; // u — вдоль стены, n — наружу
@@ -79,8 +87,9 @@ export function createVillage(scene, terrain, houses, roads, effects) {
         }
       }
       // застеклённая веранда на втором этаже (типично для Бутри)
-      if (side === 1 && h.floors >= 2 && rnd() < 0.65) {
-        const y = h.ground + 3, vx = cx + nx * (D / 2 + 0.85), vz = cz + nz * (D / 2 + 0.85);
+      const vx0 = cx + nx * (D / 2 + 0.85), vz0 = cz + nz * (D / 2 + 0.85);
+      if (side === 1 && h.floors >= 2 && rnd() < 0.65 && roads.distToRoad(vx0, vz0) > 1.5 && roads.distToRoad(vx0 + ux * L / 2, vz0 + uz * L / 2) > 1 && roads.distToRoad(vx0 - ux * L / 2, vz0 - uz * L / 2) > 1) { // веранда не нависает над дорогой
+        const y = h.ground + 3, vx = vx0, vz = vz0;
         put(B.slab, vx, y, vz, faceRy, L, 1, 1);
         boxc(vx, vz, dirA, L + 0.3, 1.9, y + 3); // веранда со столбами — не пройти насквозь
         const ox = nx * 0.8, oz = nz * 0.8;
@@ -133,13 +142,14 @@ export function createVillage(scene, terrain, houses, roads, effects) {
 
   // --- фонари вдоль главной дороги в селе (стекло светится ночью) ---
   const lampGlass = new THREE.MeshStandardMaterial({ color: '#3a3326', emissive: '#ffc070', emissiveIntensity: 0 });
-  const lpost = batch(scene, new THREE.CylinderGeometry(0.07, 0.09, 3.2, 8), new THREE.MeshStandardMaterial({ color: '#2b2622', roughness: 0.55, metalness: 0.7 }));
-  const lglass = batch(scene, new THREE.BoxGeometry(0.32, 0.42, 0.32), lampGlass, { shadow: false });
+  const lpost = batch(scene, new THREE.CylinderGeometry(0.07, 0.09, 3.2, 8), new THREE.MeshStandardMaterial({ color: '#2b2622', roughness: 0.55, metalness: 0.7 }), { lod: 500 });
+  const lglass = batch(scene, new THREE.BoxGeometry(0.32, 0.42, 0.32), lampGlass, { shadow: false, lod: 2000 });
+  const inVillage = (x, z) => roads.layout && roads.layout.has ? roads.layout.village(x, z) > 0.3 : Math.hypot(x, z) < 330;
   for (const { kind, pts } of roads.lines) {
-    if (kind === 'path') continue;
+    if (kind !== 'main' && kind !== 'street') continue;
     let acc = 0;
     for (let i = 1; i < pts.length; i++) {
-      const p = pts[i]; if (Math.hypot(p.x, p.z) > 330) continue;
+      const p = pts[i]; if (!inVillage(p.x, p.z)) continue;
       if ((acc += 3) < 36) continue; acc = 0;
       const a = pts[i - 1], ang = Math.atan2(p.z - a.z, p.x - a.x), off = (kind === 'main' ? 2.75 : 1.8) + 0.5;
       const x = p.x - Math.sin(ang) * off, z = p.z + Math.cos(ang) * off;
@@ -152,19 +162,19 @@ export function createVillage(scene, terrain, houses, roads, effects) {
 
   // --- хозяйство у домов: бочки, ящики, дрова, стога, телеги ---
   const P = {
-    barrel: batch(scene, new THREE.CylinderGeometry(0.42, 0.42, 1, 12), pbr('planks', { color: '#a07a56' })),
-    hoop: batch(scene, new THREE.CylinderGeometry(0.435, 0.435, 0.07, 12, 1, true), new THREE.MeshStandardMaterial({ color: '#3a3430', roughness: 0.5, metalness: 0.7, side: THREE.DoubleSide }), { shadow: false }),
-    crate: batch(scene, new THREE.BoxGeometry(0.8, 0.8, 0.8), pbr('planks', { color: '#c8a880' })),
-    wood: batch(scene, new THREE.CylinderGeometry(0.11, 0.11, 0.9, 7), pbr('bark', { color: '#c8b090' })),   // поленья (кладутся в поленницу)
-    hay: batch(scene, new THREE.SphereGeometry(1.5, 12, 8, 0, Math.PI * 2, 0, Math.PI * 0.62), pbr('wool', { color: '#d2b468', normal: 2 })),
-    cart: batch(scene, new THREE.BoxGeometry(2.2, 0.5, 1.3), pbr('planks', { color: '#9a7656' })),
-    wheel: batch(scene, new THREE.CylinderGeometry(0.55, 0.55, 0.12, 14), pbr('planks', { color: '#6a5444' })),
+    barrel: batch(scene, new THREE.CylinderGeometry(0.42, 0.42, 1, 12), pbr('planks', { color: '#a07a56' }), { lod: 220 }),
+    hoop: batch(scene, new THREE.CylinderGeometry(0.435, 0.435, 0.07, 12, 1, true), new THREE.MeshStandardMaterial({ color: '#3a3430', roughness: 0.5, metalness: 0.7, side: THREE.DoubleSide }), { shadow: false , lod: 120 }),
+    crate: batch(scene, new THREE.BoxGeometry(0.8, 0.8, 0.8), pbr('planks', { color: '#c8a880' }), { lod: 220 }),
+    wood: batch(scene, new THREE.CylinderGeometry(0.11, 0.11, 0.9, 7), pbr('bark', { color: '#c8b090' }), { lod: 180 }),   // поленья (кладутся в поленницу)
+    hay: batch(scene, new THREE.SphereGeometry(1.5, 12, 8, 0, Math.PI * 2, 0, Math.PI * 0.62), pbr('wool', { color: '#d2b468', normal: 2 }), { lod: 500 }),
+    cart: batch(scene, new THREE.BoxGeometry(2.2, 0.5, 1.3), pbr('planks', { color: '#9a7656' }), { lod: 260 }),
+    wheel: batch(scene, new THREE.CylinderGeometry(0.55, 0.55, 0.12, 14), pbr('planks', { color: '#6a5444' }), { lod: 200 }),
   };
   for (const h of houses) {
     const n = Math.floor(rnd() * 4);
     for (let k = 0; k < n; k++) {
       const a = rnd() * 6.28, r = h.radius + 1.3 + rnd() * 1.5, x = h.center.x + Math.cos(a) * r, z = h.center.z + Math.sin(a) * r;
-      if (roads.distToRoad(x, z) < 0.6) continue;
+      if (roads.distToRoad(x, z) < 3) continue; // бочки, дрова, стога, телеги — не на дороге
       const y = terrain.heightAt(x, z), t = rnd(), ry = rnd() * 6;
       if (t < 0.3) { put(P.barrel, x, y + 0.48, z, ry); put(P.hoop, x, y + 0.2, z, ry); put(P.hoop, x, y + 0.78, z, ry); circ(x, z, 0.45, y + 1); }
       else if (t < 0.5) { circ(x, z, 0.55, y + 1.6); put(P.crate, x, y + 0.4, z, ry); if (rnd() < 0.5) put(P.crate, x, y + 1.2, z, ry + 0.4, 0.8, 0.8, 0.8); }
@@ -189,6 +199,13 @@ export function createVillage(scene, terrain, houses, roads, effects) {
   let t = 0;
   return {
     fires, square: sq, colliders,
+    // LOD: мелкие детали (окна, двери, бочки, дрова…) видны только на ближних участках
+    updateLOD(player) {
+      for (const c of CHUNKS.values()) {
+        const d = Math.hypot(c.cx - player.x, c.cz - player.z) - CH * 0.7;
+        for (const m of c.meshes) m.visible = d < m.userData.lod;
+      }
+    },
     update(dt, player) {
       t += dt;
       const night = env.night;

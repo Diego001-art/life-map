@@ -3,9 +3,11 @@
 import * as THREE from 'three';
 import { env } from './env.js';
 
-export function createStream(scene, terrain, start) {
-  const pts = [{ x: start.x, z: start.z }];
-  let x = start.x, z = start.z, prevA = null;
+// given — готовое русло (например, речка Дарголакотты вдоль долины по спутниковой карте); тогда start не нужен.
+export function createStream(scene, terrain, start, given = null) {
+  let pts = given ? given.slice() : [{ x: start.x, z: start.z }];
+  if (given && terrain.heightAt(pts[0].x, pts[0].z) < terrain.heightAt(pts[pts.length - 1].x, pts[pts.length - 1].z)) pts.reverse(); // течёт вниз
+  let x = given ? 1e9 : start.x, z = given ? 1e9 : start.z, prevA = null;
   const lim = terrain.size / 2 - 8;
   for (let i = 0; i < 500 && Math.abs(x) < lim && Math.abs(z) < lim; i++) {
     let best = null;
@@ -25,7 +27,7 @@ export function createStream(scene, terrain, start) {
   let len = 0;
   pts.forEach((p, i) => {
     const a = pts[Math.max(0, i - 1)], b = pts[Math.min(pts.length - 1, i + 1)];
-    const dx = b.x - a.x, dz = b.z - a.z, L = Math.hypot(dx, dz) || 1, w = Math.min(3.2, 1.2 + i * 0.02);
+    const dx = b.x - a.x, dz = b.z - a.z, L = Math.hypot(dx, dz) || 1, w = given ? 1.6 + Math.sin(i * 0.13) * 0.4 : Math.min(3.2, 1.2 + i * 0.02);
     if (i) len += Math.hypot(p.x - pts[i - 1].x, p.z - pts[i - 1].z);
     for (const s of [-1, 1]) {
       const vx = p.x - dz / L * w * s, vz = p.z + dx / L * w * s;

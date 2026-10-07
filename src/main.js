@@ -9,6 +9,7 @@ import { createAtmosphere } from './world/atmosphere.js';
 import { createEffects } from './world/effects.js';
 import { createVillage } from './world/village.js';
 import { createStream } from './world/water.js';
+import { loadLayout, riverAlong } from './world/layout.js';
 import { env } from './world/env.js';
 import { createVillagers } from './npc/villagers.js';
 import { createTrees } from './world/trees.js';
@@ -68,7 +69,12 @@ const itemsCfg = await (await fetch('data/items.json')).json();
 
 // Мир
 step('Рельеф гор', 12); await frame();
-const terrain = await createTerrain(scene);
+// Планировка по спутниковой карте: дороги, кварталы, лес (data/layout). Рельеф — реальные высоты.
+const layout = await loadLayout();
+const terrain = await createTerrain(scene, layout);
+// речка Дарголакотты — по дну долины вдоль главной дороги
+const mainRoad = layout.lines.find(l => l.kind === 'main');
+if (mainRoad) layout.lines.push({ kind: 'river', pts: riverAlong(mainRoad.pts, terrain.heightAt) });
 const geo = makeGeo(terrain.lat, terrain.lon);
 const stopCreep = creep(18, 40);
 const osm = await loadOsm(terrain.lat, terrain.lon);
@@ -76,7 +82,7 @@ stopCreep();
 step('Пещера, мечеть, родник', 42); await frame();
 const places = await createPlaces(scene, terrain);
 step('Дороги и тропинки', 50); await frame();
-const roads = createRoads(scene, terrain, places, osmRoadLines(osm, geo));
+const roads = createRoads(scene, terrain, places, osmRoadLines(osm, geo), layout);
 step('Дома села', 60); await frame();
 const { houses, clearAround, bake: bakeHouses } = await createHouses(scene, terrain, geo, osm, roads);
 if (!osm) hud.toast(t('noHouses'));
@@ -92,7 +98,8 @@ clearAround(0, 0, 8); // место появления героя
 for (const n of npcs.list) clearAround(n.object.position.x, n.object.position.z, 3);
 bakeHouses(); // все дома — в несколько больших мешей
 const village = createVillage(scene, terrain, houses, roads, effects);
-const stream = places.spring ? createStream(scene, terrain, places.spring.pos) : null;
+const river = layout.lines.find(l => l.kind === 'river');
+const stream = river ? createStream(scene, terrain, null, river.pts) : places.spring ? createStream(scene, terrain, places.spring.pos) : null;
 const eagle = createEagle(scene);
 step('Деревья, трава, ограды', 74); await frame();
 // Коллизии: дома, детали села, места, деревья, камни, ограды. Граница — кольцо скал.
@@ -257,6 +264,7 @@ renderer.setAnimationLoop(() => {
     hud.sector(sectorOf(p.x, p.z));
     hud.house(houses.find(h => Math.hypot(h.center.x - p.x, h.center.z - p.z) < h.radius + 4));
     map.update(p);
+    village.updateLOD(p);
     if (!document.getElementById('heroPanel').classList.contains('hidden')) hud.heroPanel(hero);
     // мокрая земля в дождь, звук дождя и костра
     terrain.setWet(env.rain);

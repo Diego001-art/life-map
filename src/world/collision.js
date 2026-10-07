@@ -75,6 +75,8 @@ export function createCollision({ radiusLimit = 965 } = {}) {
       return false;
     },
     radiusLimit,
+    // какие препятствия в точке (для отладки)
+    whoBlocks(x, z, r = 0.4) { return [...near(x, z, false)].filter(c => push(c, x, z, r)); },
   };
 }
 

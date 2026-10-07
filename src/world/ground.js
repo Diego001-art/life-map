@@ -4,13 +4,13 @@
 import * as THREE from 'three';
 import { tex } from './textures.js';
 
-export function groundMaterial({ scale = 0.25, snowLine = 1e9, rockLine = 1e9, terraces = false, wet = { value: 0 } } = {}) {
+export function groundMaterial({ scale = 0.25, snowLine = 1e9, rockLine = 1e9, terraces = false, wet = { value: 0 }, zones = null } = {}) {
   const T = { grass: tex('grass'), dirt: tex('dirt'), rock: tex('rock'), snow: tex('snow') };
   const mat = new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.95, metalness: 0, vertexColors: true });
   const uniforms = {
     tGrass: { value: T.grass.map }, tDirt: { value: T.dirt.map }, tRock: { value: T.rock.map }, tSnow: { value: T.snow.map },
     nGrass: { value: T.grass.normalMap }, nRock: { value: T.rock.normalMap }, nDirt: { value: T.dirt.normalMap },
-    uScale: { value: scale }, uSnow: { value: snowLine }, uRockLine: { value: rockLine }, uWet: wet,
+    tZones: { value: zones }, uScale: { value: scale }, uSnow: { value: snowLine }, uRockLine: { value: rockLine }, uWet: wet,
   };
   mat.onBeforeCompile = (sh) => {
     Object.assign(sh.uniforms, uniforms);
@@ -20,7 +20,7 @@ export function groundMaterial({ scale = 0.25, snowLine = 1e9, rockLine = 1e9, t
     sh.fragmentShader = sh.fragmentShader
       .replace('#include <common>', `#include <common>
         varying vec3 vWp; varying vec3 vWn;
-        uniform sampler2D tGrass, tDirt, tRock, tSnow, nGrass, nRock, nDirt;
+        uniform sampler2D tGrass, tDirt, tRock, tSnow, nGrass, nRock, nDirt, tZones;
         uniform float uScale, uSnow, uRockLine, uWet;
         vec4 wG, nB; float wR, wS, wD;
         // две выборки с разным масштабом и поворотом — чтобы не было видно повторяющихся квадратов
@@ -34,14 +34,23 @@ export function groundMaterial({ scale = 0.25, snowLine = 1e9, rockLine = 1e9, t
         wR = clamp(wR, 0.0, 1.0);
         wS = smoothstep(uSnow - 60.0, uSnow + 40.0, vWp.y + (nz - 0.5) * 220.0) * (1.0 - smoothstep(0.45, 0.65, slope));
         wD = smoothstep(0.52, 0.66, big) * (1.0 - wR) * 0.85;
+        ${zones ? `
+        // зоны со спутниковой карты: R — село (вытоптанная земля, без террас), G — лес (тень, подстилка), B — голые осыпи
+        vec3 zn = texture2D(tZones, (vWp.xz + 1000.0) / 2000.0).rgb;
+        float zVil = zn.r, zFor = zn.g, zBare = zn.b;
+        wD = max(wD, zBare * 0.9 * (1.0 - wR));
+        wD = max(wD, zVil * smoothstep(0.35, 0.75, nz) * 0.55);` : 'float zVil = 0.0, zFor = 0.0, zBare = 0.0;'}
         vec3 col = tri(tGrass, p) * vColor.rgb * 2.5;
         col = mix(col, tri(tDirt, p * 1.3), wD);
         col = mix(col, tri(tRock, p * 0.6), wR);
         col = mix(col, tri(tSnow, p * 0.5), wS);
         ${terraces ? `
-        float far = smoothstep(280.0, 420.0, length(vWp.xz));
-        float band = smoothstep(0.0, 0.12, fract(vWp.y / 3.2)) * (1.0 - smoothstep(0.75, 0.9, fract(vWp.y / 3.2)));
-        col *= mix(1.0, mix(0.8, 1.04, band), far * (1.0 - wR));` : ''}
+        float far = 1.0 - smoothstep(0.05, 0.35, zVil);   // террасы на склонах вокруг села, внутри села — нет
+        float tb = fract(vWp.y / 4.5 + nz * 0.25); // террасы с неровным краем
+        float band = smoothstep(0.0, 0.18, tb) * (1.0 - smoothstep(0.78, 0.95, tb));
+        col *= mix(1.0, mix(0.87, 1.03, band), far * (1.0 - wR));
+        col = mix(col, col * vec3(1.1, 1.05, 0.85), (1.0 - band) * far * 0.35); // подсохшая трава на уступах` : ''}
+        col *= mix(1.0, 0.72, zFor);              // под лесом темнее
         col *= 1.0 - uWet * 0.3 * (1.0 - wS);  // мокрая земля в дождь темнее
         diffuseColor.rgb *= col;`)
       .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
@@ -54,6 +63,6 @@ export function groundMaterial({ scale = 0.25, snowLine = 1e9, rockLine = 1e9, t
           normal = normalize(normal + (tX * nm.x - tZ * nm.y) * (0.25 + wR * 0.5)); // трава — едва заметный рельеф, скала — сильный
         }`);
   };
-  mat.customProgramCacheKey = () => `ground-${scale}-${snowLine}-${rockLine}-${terraces}`;
+  mat.customProgramCacheKey = () => `ground-${scale}-${snowLine}-${rockLine}-${terraces}-${!!zones}`;
   return mat;
 }
