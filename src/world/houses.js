@@ -34,7 +34,7 @@ export async function createHouses(scene, terrain, geo, osm, roads) {
   // Стена — текстура известняка из фото села (assets/tex/wall.jpg).
   const wallTex = new THREE.TextureLoader().load('assets/tex/wall.jpg');
   wallTex.wrapS = wallTex.wrapT = THREE.RepeatWrapping;
-  wallTex.repeat.set(0.25, 0.33);
+  wallTex.repeat.set(0.42, 0.55);
   wallTex.colorSpace = THREE.SRGBColorSpace;
   // Цвета крыш как на фото: в основном серый металл, иногда красные, синие, зелёные.
   const ROOFS = ['#a8adb1', '#9aa0a4', '#b6babd', '#8d9397', '#a8adb1', '#b5483c', '#3f6f9a', '#4f7a4f', '#7a4a3a'];
@@ -87,13 +87,13 @@ export async function createHouses(scene, terrain, geo, osm, roads) {
     scene.add(mesh);
     const top = mesh.position.y + height;
     let roof = null;
+    const box = orientedBox(pts);
     if (opts.roof !== 'flat') {
-      const box = orientedBox(pts);
       roof = gableRoof(box, roofColor);
       roof.position.set(box.cx, top, box.cz);
       roof.castShadow = true; scene.add(roof);
     }
-    houses.push({ id, name: opts.name, photo: opts.photo, center: new THREE.Vector3(cx, minY, cz), radius, top, mesh, roof });
+    houses.push({ id, name: opts.name, photo: opts.photo, center: new THREE.Vector3(cx, minY, cz), radius, top, mesh, roof, box, floors, ground: minY, maxY: Math.max(...pts.map(p => terrain.heightAt(p.x, p.z))), gen: id.startsWith('gen-') });
   }
 
   if (osm) {

@@ -1,27 +1,14 @@
 // Деревья, небо, свет.
 import * as THREE from 'three';
-
-export function createSky(scene) {
-  scene.background = new THREE.Color('#8fbde6');
-  scene.fog = new THREE.Fog('#b8d2e6', 300, 7000);
-  scene.add(new THREE.HemisphereLight('#dfefff', '#5a5040', 0.9));
-  const sun = new THREE.DirectionalLight('#fff2d8', 1.6);
-  sun.castShadow = true;
-  sun.shadow.mapSize.set(2048, 2048);
-  sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.03; sun.shadow.radius = 3;
-  Object.assign(sun.shadow.camera, { left: -70, right: 70, top: 70, bottom: -70, far: 400 });
-  scene.add(sun, sun.target);
-  // Солнце следует за игроком, чтобы тени были рядом.
-  return (p) => { sun.position.set(p.x + 110, p.y + 110, p.z + 60); sun.target.position.copy(p); };
-}
+import { addWind } from './env.js';
 
 // Фруктовые деревья — в основном в селе и в овраге; на голых склонах редко.
 export function createTrees(scene, terrain, houses, roads, count = 500) {
   const trunk = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.15, 0.25, 2, 5), new THREE.MeshLambertMaterial({ color: '#5a4030' }), count);
-  const crown = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1.8, 0), new THREE.MeshLambertMaterial({ color: '#ffffff', flatShading: true }), count);
+  const crown = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1.8, 0), addWind(new THREE.MeshLambertMaterial({ color: '#ffffff', flatShading: true }), 0.18, 1.8), count);
   trunk.castShadow = crown.castShadow = true;
   const greens = ['#4f8a34', '#5e9a3a', '#3f7a2e', '#6aa444', '#86b04e'].map(c => new THREE.Color(c));
-  const m = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3();
+  const m = new THREE.Matrix4(), q = new THREE.Quaternion(), q2 = new THREE.Quaternion(), s = new THREE.Vector3();
   let i = 0, tries = 0;
   while (i < count && tries++ < count * 30) {
     const inVillage = Math.random() < 0.8, r = inVillage ? Math.sqrt(Math.random()) * 380 : 380 + Math.random() * 500, a = Math.random() * 6.28;
@@ -36,6 +23,47 @@ export function createTrees(scene, terrain, houses, roads, count = 500) {
   }
   trunk.count = crown.count = i;
   scene.add(trunk, crown);
+
+  // Тополя — высокие и узкие, растут рядами у дорог и в овраге (как на фото села).
+  const PN = 160;
+  const pTrunk = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.15, 0.25, 3, 5), new THREE.MeshLambertMaterial({ color: '#6a5a48' }), PN);
+  const pGeo = new THREE.IcosahedronGeometry(1, 1); pGeo.scale(1.3, 5, 1.3); pGeo.translate(0, 5, 0);
+  const pCrown = new THREE.InstancedMesh(pGeo, addWind(new THREE.MeshLambertMaterial({ color: '#ffffff', flatShading: true }), 0.35, 10), PN);
+  pTrunk.castShadow = pCrown.castShadow = true;
+  const pc = ['#4a7a34', '#557f38', '#3f6c30'].map(c => new THREE.Color(c));
+  let pn = 0;
+  for (const { kind, pts } of roads.lines) {
+    if (kind === 'path') continue;
+    for (let j = 0; j < pts.length && pn < PN; j += 4) {
+      const p = pts[j]; if (Math.hypot(p.x, p.z) > 420 || Math.random() < 0.6) continue;
+      const q = pts[Math.min(pts.length - 1, j + 1)], a = Math.atan2(q.z - p.z, q.x - p.x), side = Math.random() < 0.5 ? 1 : -1, off = 5 + Math.random() * 3;
+      const x = p.x - Math.sin(a) * off * side, z = p.z + Math.cos(a) * off * side;
+      if (houses.some(h => Math.hypot(h.center.x - x, h.center.z - z) < h.radius + 2) || roads.distToRoad(x, z) < 1.5) continue;
+      const y = terrain.heightAt(x, z), k = 0.8 + Math.random() * 0.5;
+      q2.identity(); s.set(k, k, k);
+      m.compose(new THREE.Vector3(x, y + 1.5 * k, z), q2, s); pTrunk.setMatrixAt(pn, m);
+      m.compose(new THREE.Vector3(x, y + 1 * k, z), q2, s); pCrown.setMatrixAt(pn, m); pCrown.setColorAt(pn, pc[pn % 3]);
+      pn++;
+    }
+  }
+  pTrunk.count = pCrown.count = pn; scene.add(pTrunk, pCrown);
+
+  // Кусты: группами по склонам и у оград.
+  const BN = 700;
+  const bush = new THREE.InstancedMesh(new THREE.DodecahedronGeometry(0.9, 0), addWind(new THREE.MeshLambertMaterial({ color: '#ffffff', flatShading: true }), 0.08, 0.9), BN);
+  bush.castShadow = true;
+  const bc = ['#4d7a33', '#5f8a3a', '#6b7f3a', '#3f6a2e'].map(c => new THREE.Color(c));
+  let bn = 0;
+  for (let k = 0; k < BN * 4 && bn < BN; k++) {
+    const a = Math.random() * 6.28, r = Math.sqrt(Math.random()) * 750, x = Math.cos(a) * r, z = Math.sin(a) * r;
+    if (houses.some(h => Math.hypot(h.center.x - x, h.center.z - z) < h.radius + 1) || roads.distToRoad(x, z) < 1) continue;
+    for (let c = 0; c < 1 + Math.floor(Math.random() * 3) && bn < BN; c++) { // кусты растут кучками
+      const bx = x + (Math.random() - 0.5) * 3, bz = z + (Math.random() - 0.5) * 3, kk = 0.6 + Math.random() * 0.9;
+      q2.setFromEuler(new THREE.Euler(0, Math.random() * 6, 0)); s.set(kk * 1.2, kk * 0.8, kk);
+      m.compose(new THREE.Vector3(bx, terrain.heightAt(bx, bz) + 0.3 * kk, bz), q2, s); bush.setMatrixAt(bn, m); bush.setColorAt(bn, bc[bn % 4]); bn++;
+    }
+  }
+  bush.count = bn; scene.add(bush);
 }
 
 // Мелкие детали: пучки травы, камни, каменные ограды вдоль улиц.
@@ -45,7 +73,7 @@ export function createDetails(scene, terrain, houses, roads) {
 
   // Трава: три травинки-конуса в пучке.
   const tuftGeo = new THREE.ConeGeometry(0.12, 0.7, 3); tuftGeo.translate(0, 0.35, 0);
-  const tufts = new THREE.InstancedMesh(tuftGeo, new THREE.MeshLambertMaterial({ color: '#ffffff' }), 9000);
+  const tufts = new THREE.InstancedMesh(tuftGeo, addWind(new THREE.MeshLambertMaterial({ color: '#ffffff' }), 0.12, 0.7), 9000);
   const gc = ['#5d9a3a', '#6faa44', '#4f8a32', '#89a84a', '#a2b25a'].map(c => new THREE.Color(c));
   let n = 0;
   for (let i = 0; i < 20000 && n < 9000; i++) {
@@ -83,7 +111,8 @@ export function createDetails(scene, terrain, houses, roads) {
       const ang = Math.atan2(b.z - a.z, b.x - a.x), L = Math.hypot(b.x - a.x, b.z - a.z);
       for (const side of [1, -1]) {
         const x = (a.x + b.x) / 2 - Math.sin(ang) * off * side, z = (a.z + b.z) / 2 + Math.cos(ang) * off * side;
-        if (nearHouse(x, z, 1.5) || roads.distToRoad(x, z) < 0.2) continue;
+        const ex = Math.cos(ang) * L / 2, ez = Math.sin(ang) * L / 2; // концы ограды не должны заходить на другую дорогу
+        if (nearHouse(x, z, 1.5) || roads.distToRoad(x, z) < 0.3 || roads.distToRoad(x + ex, z + ez) < 0.3 || roads.distToRoad(x - ex, z - ez) < 0.3) continue;
         dummy.position.set(x, terrain.heightAt(x, z) + 0.2, z);
         dummy.rotation.set(0, -ang, 0); dummy.scale.set(L / 2.15, 0.8 + Math.random() * 0.4, 1);
         dummy.updateMatrix(); walls.setMatrixAt(n++, dummy.matrix);

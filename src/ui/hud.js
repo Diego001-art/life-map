@@ -1,9 +1,9 @@
 // Надписи и окна на экране: подсказки, сумка, диалоги, квесты, сектор.
 import { t, tr } from '../systems/i18n.js';
-import { iconFor } from '../items/icons.js';
+import { iconFor, portraitFor } from '../items/icons.js';
 import { EQUIP_SLOTS } from '../systems/inventory.js';
 const $ = (id) => document.getElementById(id);
-let toastTimer, lines = [], speaker = '', heroName = () => '';
+let toastTimer, lines = [], speaker = '', portrait = '', heroName = () => '', typing = null, full = '';
 export const setHeroName = (f) => heroName = f;
 export const hud = {
   refresh() { $('help').textContent = t('help'); $('langBtn').textContent = t('lang'); $('invTitle').textContent = t('inventory'); $('eqTitle').textContent = t('equipment'); $('jTitle').textContent = t('journal'); },
@@ -11,7 +11,7 @@ export const hud = {
   hint(text) { if (!this.hintsOn) text = ''; $('hint').style.display = text ? 'block' : 'none'; $('hint').textContent = text || ''; },
   house(h) { $('houseInfo').style.display = h ? 'block' : 'none'; if (h) $('houseInfo').textContent = h.name || `${t('house')} №${h.id}`; },
   sector(s) { $('sector').textContent = `${t('sector')} ${s}`; },
-  toast(text) { $('toast').textContent = text; clearTimeout(toastTimer); toastTimer = setTimeout(() => $('toast').textContent = '', 2500); },
+  toast(text) { const el = $('toast'); el.textContent = text; el.classList.remove('show'); void el.offsetWidth; el.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('show'), 2600); },
   // Рюкзак: ячейки с картинками; клик по вещи — надеть, по надетой — снять.
   inv: null, onDress: () => {},
   toggleInventory() { $('inventory').classList.toggle('hidden'); this.renderInventory(); },
@@ -34,18 +34,27 @@ export const hud = {
     }
   },
   // Диалоги: очередь реплик, E — следующая.
-  dialog(list, who = '') { lines.push(...list); if (who) speaker = who; this._show(); },
+  // Текст печатается плавно; E во время печати — сразу показать всю реплику.
+  setSpeaker(who, npcObject) { speaker = who; portrait = portraitFor(npcObject); },
+  dialog(list) { if (!list || !list.length) return; const was = lines.length; lines.push(...list); if (!was) this._show(); },
   get inDialog() { return !$('dialog').classList.contains('hidden'); },
-  nextLine() { lines.shift(); this._show(); },
+  nextLine() { if (typing) { clearInterval(typing); typing = null; $('dlgBody').textContent = full; return; } lines.shift(); this._show(); },
   _show() {
-    if (!lines.length) { $('dialog').classList.add('hidden'); speaker = ''; return; }
+    clearInterval(typing); typing = null;
+    if (!lines.length) { $('dialog').classList.add('hidden'); speaker = ''; portrait = ''; return; }
     $('dialog').classList.remove('hidden');
-    $('dlgText').innerHTML = (speaker ? `<b>${speaker}:</b> ` : '') + tr(lines[0]).replaceAll('{name}', heroName());
+    $('dlgPortrait').style.display = portrait ? '' : 'none'; if (portrait) $('dlgPortrait').src = portrait;
+    $('dlgText').innerHTML = (speaker ? `<b>${speaker}</b>` : '') + '<span id="dlgBody"></span>';
+    full = tr(lines[0]).replaceAll('{name}', heroName());
+    let i = 0;
+    typing = setInterval(() => { i += 2; $('dlgBody').textContent = full.slice(0, i); if (i >= full.length) { clearInterval(typing); typing = null; } }, 22);
     $('dlgNext').textContent = t('next');
   },
   quests(q) {
     const active = q.list.filter(x => !q.done(x));
-    $('questTrack').innerHTML = active.map(x => `<b>${tr(x.title)}</b>: ${tr(q.current(x).text)} ${q.progress(x)}`).join('<br>');
+    // на экране — только одна цель (главный квест первым), остальные в журнале (J)
+    const main = active.find(x => x.main) || active[0];
+    $('questTrack').innerHTML = main ? `<b>${tr(main.title)}</b><span>◆ ${tr(q.current(main).text)} ${q.progress(main)}</span>${active.length > 1 ? `<small>+${active.length - 1} · J</small>` : ''}` : '';
     $('jList').innerHTML = q.list.map(x => `<div class="q ${q.done(x) ? 'done' : ''}"><b>${tr(x.title)}</b>${x.main ? ' (' + t('main') + ')' : ''}<br>${q.done(x) ? '✔' : '→ ' + tr(q.current(x).text) + ' ' + q.progress(x)}</div>`).join('');
   },
   toggleJournal() { $('journal').classList.toggle('hidden'); },

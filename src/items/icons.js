@@ -27,3 +27,22 @@ export function iconFor(def) {
   scene.remove(m);
   return cache[key] = renderer.domElement.toDataURL();
 }
+
+// Портрет жителя для окна диалога: «фотографируем» голову модели.
+const portraits = new WeakMap();
+export function portraitFor(npcObject) {
+  if (!npcObject) return '';
+  if (portraits.has(npcObject)) return portraits.get(npcObject);
+  iconFor({ shape: 'stone', color: '#000' }); // создаёт маленький рендерер, если его ещё нет
+  const clone = npcObject.clone(true);
+  clone.position.set(0, 0, 0); clone.rotation.set(0, -0.35, 0);
+  clone.traverse(o => { if (o.geometry && o.geometry.type === 'ConeGeometry' && o.position.y > 2.5) o.visible = false; }); // без «!» над головой
+  scene.add(clone);
+  const bg = new THREE.Mesh(new THREE.PlaneGeometry(4, 4), new THREE.MeshBasicMaterial({ color: '#2a2018' })); bg.position.set(0, 1.9, -1.2); scene.add(bg);
+  cam.position.set(0.15, 2.0, 1.25); cam.lookAt(0, 1.92, 0);
+  renderer.render(scene, cam);
+  scene.remove(clone, bg);
+  const url = renderer.domElement.toDataURL();
+  portraits.set(npcObject, url);
+  return url;
+}

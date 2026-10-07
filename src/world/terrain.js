@@ -22,13 +22,16 @@ export async function createTerrain(scene) {
   geo.rotateX(-Math.PI / 2);
   const pos = geo.attributes.position;
   const colors = [];
-  const grass = new THREE.Color('#5f9a3c'), dry = new THREE.Color('#7fa34a'), rock = new THREE.Color('#9a9070');
+  const grass = new THREE.Color('#4c7a36'), dry = new THREE.Color('#7d8a4a'), rock = new THREE.Color('#8f8676'), dark = new THREE.Color('#3b6630');
+  const nz = (x, z) => Math.sin(x * 0.031 + Math.sin(z * 0.017) * 2) * Math.cos(z * 0.027 + Math.sin(x * 0.011) * 2); // пятна на лугах
   for (let i = 0; i < pos.count; i++) {
     const y = heightAt(pos.getX(i), pos.getZ(i));
     pos.setY(i, y);
     const t = y / (d.max - base);
     const col = grass.clone().lerp(dry, Math.min(1, t * 1.3)).lerp(rock, Math.max(0, t - 0.6) * 2);
-    col.offsetHSL(0, 0, (Math.random() - 0.5) * 0.04);
+    const n = nz(pos.getX(i), pos.getZ(i));
+    col.lerp(n > 0 ? dry : dark, Math.abs(n) * 0.45);
+    col.offsetHSL((Math.random() - 0.5) * 0.01, -0.05, (Math.random() - 0.5) * 0.05);
     colors.push(col.r, col.g, col.b);
   }
   geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
@@ -48,5 +51,5 @@ export async function createTerrain(scene) {
   mesh.receiveShadow = true;
   scene.add(mesh);
 
-  return { heightAt, size, lat: d.lat, lon: d.lon };
+  return { heightAt, size, lat: d.lat, lon: d.lon, material: mat };
 }

@@ -41,13 +41,39 @@ export function createAudio() {
     if (ctx) return;
     ctx = new AudioContext();
     master = ctx.createGain(); master.gain.value = on ? 0.6 : 0; master.connect(ctx.destination);
-    wind(0.22, 380); wind(0.1, 900); drone();
+    wind(0.22, 380); wind(0.1, 900); drone(); ambience();
     const loopEagle = () => { if (on) eagleCry(); setTimeout(loopEagle, 14000 + Math.random() * 20000); };
     setTimeout(loopEagle, 2500);
     const loopBird = () => { if (on) bird(); setTimeout(loopBird, 3000 + Math.random() * 8000); };
     setTimeout(loopBird, 4000);
   }
+  // дождь: шипящий шум, громкость задаётся погодой
+  let rainG = null, fireG = null;
+  function ambience() {
+    const mk = (freq, q, type) => { const src = ctx.createBufferSource(); src.buffer = noiseBuf(); src.loop = true; const f = ctx.createBiquadFilter(); f.type = type; f.frequency.value = freq; f.Q.value = q; const g = ctx.createGain(); g.gain.value = 0; src.connect(f).connect(g).connect(master); src.start(); return g; };
+    rainG = mk(2500, 0.4, 'highpass');
+    fireG = mk(900, 0.5, 'bandpass');
+  }
+  function crackle(v) { // треск костра: короткие щелчки
+    if (!ctx || v < 0.02 || Math.random() > 0.35) return;
+    const b = ctx.createBufferSource(), len = 0.02 + Math.random() * 0.03, buf = ctx.createBuffer(1, ctx.sampleRate * len, ctx.sampleRate), d = buf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / d.length);
+    b.buffer = buf; const g = ctx.createGain(); g.gain.value = 0.25 * v; b.connect(g).connect(master); b.start();
+  }
+  let stepSide = 0;
+  function footstep(surface, run) { // шаг: глухой удар (земля/трава) или хруст (щебень)
+    if (!ctx || !on) return;
+    const t = ctx.currentTime, b = ctx.createBufferSource(), buf = ctx.createBuffer(1, ctx.sampleRate * 0.09, ctx.sampleRate), d = buf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / d.length, 3);
+    b.buffer = buf;
+    const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = (surface === 'road' ? 1800 : 650) + (stepSide++ % 2) * 120;
+    const g = ctx.createGain(); g.gain.value = (run ? 0.22 : 0.14) * (surface === 'road' ? 1 : 0.8);
+    b.connect(f).connect(g).connect(master); b.start(t);
+  }
   return {
+    footstep,
+    setRain(v) { if (rainG) rainG.gain.setTargetAtTime(v * 0.18, ctx.currentTime, 0.5); },
+    setFire(v) { if (fireG) fireG.gain.setTargetAtTime(v * 0.05, ctx.currentTime, 0.3); crackle(v); },
     enable(v) { on = v; if (v) start(); if (master) master.gain.setTargetAtTime(v ? 0.6 : 0, ctx.currentTime, 0.3); },
     menuMusic(v) { if (music) music.gain.setTargetAtTime(v ? 1 : 0.15, ctx.currentTime, 1.5); },
     eagle() { if (ctx && on) eagleCry(); },

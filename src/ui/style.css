@@ -72,16 +72,22 @@ canvas { display: block; }
 #hud > * { position: fixed; text-shadow: 0 1px 3px #000; }
 #hint { bottom: 110px; left: 50%; transform: translateX(-50%); font-size: 18px; background: #000a; border: 1px solid #8a632688; padding: 6px 16px; border-radius: 3px; display: none; }
 #houseInfo { top: 12px; left: 50%; transform: translateX(-50%); font: 700 18px var(--title); color: var(--gold); background: #0008; padding: 4px 14px; border-radius: 3px; display: none; }
-#toast { top: 60px; left: 50%; transform: translateX(-50%); font: 700 22px var(--title); color: var(--gold); letter-spacing: 1px; }
+#toast { top: 70px; left: 50%; transform: translateX(-50%); font: 700 24px var(--title); color: var(--gold); letter-spacing: 1px; opacity: 0; transition: opacity .5s; white-space: nowrap; }
+#toast.show { opacity: 1; transition: opacity .15s; }
 #help { right: 12px; bottom: 12px; max-width: 320px; text-align: right; font-size: 12px; opacity: .7; background: #0003; padding: 8px 10px; border-radius: 3px; line-height: 1.5; }
 #langBtn { right: 12px; top: 12px; }
 #minimap { left: 12px; top: 12px; border: 2px solid var(--gold2); box-shadow: 0 0 0 1px #000, 0 0 0 3px #3a2a14; border-radius: 50%; }
 #sector { left: 12px; top: 182px; width: 164px; text-align: center; font: 700 16px var(--title); color: var(--gold); }
 #questTrack { right: 12px; top: 56px; max-width: 300px; font-size: 14px; background: #0004; padding: 8px 12px; border-left: 2px solid var(--gold2); line-height: 1.5; }
-#questTrack b { color: var(--gold); font-family: var(--title); font-size: 16px; }
+#questTrack { display: flex; flex-direction: column; gap: 2px; background: linear-gradient(90deg, #0000, #0006); border-left: 0; border-right: 2px solid var(--gold2); text-align: right; }
+#questTrack b { color: var(--gold); font-family: var(--title); font-size: 18px; letter-spacing: 1px; }
+#questTrack small { color: var(--dim); font-size: 12px; }
 #bigmap { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(90vw, 90vh); height: min(90vw, 90vh); border: 3px solid var(--gold2); z-index: 45; box-shadow: 0 0 0 2px #000, 0 10px 50px #000; }
 #dialog { position: fixed; left: 50%; bottom: 40px; transform: translateX(-50%); width: min(720px, 92vw); padding: 16px 22px; font-size: 19px; line-height: 1.55; z-index: 46; }
-#dlgText b { color: var(--gold); font-family: var(--title); font-size: 21px; }
+#dialog { display: flex; gap: 16px; align-items: flex-start; background: linear-gradient(180deg, #1c1611e6, #0e0b09f0); }
+#dlgPortrait { width: 92px; height: 92px; flex: none; border: 2px solid var(--gold2); box-shadow: 0 0 0 1px #000, inset 0 0 10px #000; background: #2a2018; }
+.dlg-main { flex: 1; min-height: 92px; }
+#dlgText b { display: block; color: var(--gold); font-family: var(--title); font-size: 22px; letter-spacing: 1px; margin-bottom: 4px; }
 #dlgNext { text-align: right; font-size: 13px; color: var(--dim); margin-top: 6px; }
 #journal .q { margin: 10px 0; } #journal .q b { color: var(--gold); font-family: var(--title); font-size: 18px; }
 #journal .done { opacity: .5; text-decoration: line-through; }
@@ -104,3 +110,13 @@ canvas { display: block; }
 .slot.equip { border-color: #8a6326; }
 #invInfo { margin-top: 10px; min-height: 22px; font-size: 14px; color: var(--dim); text-align: center; }
 @media (max-width: 560px) { .inv-wrap { flex-direction: column; } #equipBox { width: auto; } #equipList { grid-template-columns: repeat(6, 1fr); } }
+
+/* плавные появления окон и переходы */
+.panel:not(.hidden), #dialog:not(.hidden), .menu-box { animation: pop .22s ease-out; }
+@keyframes pop { from { opacity: 0; transform: translate(-50%, -48%) scale(.97); } }
+#dialog:not(.hidden) { animation: rise .25s ease-out; }
+@keyframes rise { from { opacity: 0; transform: translate(-50%, 12px); } }
+.menu-box { animation-name: fadein; } @keyframes fadein { from { opacity: 0; transform: translateY(10px); } }
+#fade { position: fixed; inset: 0; background: #000; pointer-events: none; opacity: 0; transition: opacity .6s; z-index: 70; }
+#fade.on { opacity: 1; transition: opacity .25s; }
+#bigmap:not(.hidden) { animation: pop .2s ease-out; }

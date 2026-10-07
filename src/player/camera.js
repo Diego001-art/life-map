@@ -2,7 +2,7 @@
 // Когда герой идёт, камера сама плавно заходит ему за спину. При беге немного отдаляется.
 import * as THREE from 'three';
 
-export function createCamera(dom, terrain) {
+export function createCamera(dom, terrain, houses = []) {
   const cam = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.1, 12000);
   const s = { yaw: 0, pitch: 0.32, dist: 7, wantDist: 7, drag: false, lx: 0, ly: 0, idle: 0 };
   const target = new THREE.Vector3();
@@ -18,6 +18,13 @@ export function createCamera(dom, terrain) {
   dom.addEventListener('wheel', e => { s.wantDist = Math.min(30, Math.max(2.5, s.wantDist + e.deltaY * 0.01)); }, { passive: true });
   addEventListener('resize', () => { cam.aspect = innerWidth / innerHeight; cam.updateProjectionMatrix(); });
 
+  // точка внутри дома? (по повёрнутому прямоугольнику дома, с запасом 0.4 м)
+  function inside(h, q) {
+    if (q.y > h.top + 2.5) return false;
+    const b = h.box; if (!b) return Math.hypot(h.center.x - q.x, h.center.z - q.z) < h.radius * 0.7;
+    const dx = q.x - b.cx, dz = q.z - b.cz, c = Math.cos(-b.ang), s = Math.sin(-b.ang);
+    return Math.abs(dx * c - dz * s) < b.w / 2 + 0.4 && Math.abs(dx * s + dz * c) < b.d / 2 + 0.4;
+  }
   function update(player, dt) {
     const p = player.object.position;
     s.idle += dt;
@@ -33,6 +40,15 @@ export function createCamera(dom, terrain) {
     target.lerp(new THREE.Vector3(p.x, p.y + 1.7, p.z), Math.min(1, dt * 10));
     const off = new THREE.Vector3(Math.sin(s.yaw) * Math.cos(s.pitch), Math.sin(s.pitch), Math.cos(s.yaw) * Math.cos(s.pitch)).multiplyScalar(s.dist);
     const want = target.clone().add(off);
+    // не проходим сквозь дома: если между героем и камерой стена — камера подъезжает ближе
+    const near = houses.filter(h => Math.abs(h.center.x - p.x) < 45 && Math.abs(h.center.z - p.z) < 45);
+    if (near.length) {
+      const dir = want.clone().sub(target), L = dir.length(); dir.divideScalar(L);
+      for (let d = 0.8; d < L; d += 0.4) {
+        const q = target.clone().addScaledVector(dir, d);
+        if (near.some(h => inside(h, q))) { want.copy(target).addScaledVector(dir, Math.max(1.8, d - 0.5)); want.y += Math.max(0, 2.2 - (d - 0.5)) * 0.8; break; }
+      }
+    }
     want.y = Math.max(want.y, terrain.heightAt(want.x, want.z) + 0.6); // не уходим под землю
     cam.position.lerp(want, Math.min(1, dt * 12));
     cam.lookAt(target);
