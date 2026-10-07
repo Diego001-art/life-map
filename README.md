@@ -57,5 +57,5 @@ WASD — ходить · Shift — бег · Пробел — прыжок · з
 Esc → Настройки → Интерфейс: можно выключить подсказки, список квестов, мини-карту, звуки.
 
 ## Сайт игры (GitHub Pages)
-Settings → Pages → Source: «Deploy from a branch» → ветка с игрой, папка `/ (root)` → Save.
-Через 1–2 минуты игра будет по адресу https://diego001-art.github.io/abdul/
+Settings → Pages → Source: «Deploy from a branch» → ветка `main`, папка `/ (root)` → Save.
+Через 1–2 минуты игра будет по адресу https://diego001-art.github.io/life-map/
