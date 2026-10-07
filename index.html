@@ -4,41 +4,72 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Бутри — легенды гор</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+SC:wght@600;700&family=PT+Serif:wght@400;700&display=swap">
 <link rel="stylesheet" href="src/ui/style.css">
 <script type="importmap">{ "imports": { "three": "./lib/three.module.js" } }</script>
 </head>
 <body>
-<div id="loading"><div id="ldBox"><h1>Бутри — легенды гор</h1><div id="ldBar"><i id="ldFill"></i></div><div id="ldText">Загрузка… 0%</div></div></div>
-<div id="menuBg" class="hidden"></div>
-<div id="menu" class="hidden panel">
-  <h1 id="mTitle"></h1>
-  <div id="newHero"><label id="mNameLbl"></label><input id="mName" maxlength="20" autocomplete="off"></div>
-  <button id="mStart"></button>
-  <button id="mSettings"></button>
-  <button id="mNew"></button>
+<!-- Заставка: нарисованные горы (src/ui/scenery.js) -->
+<canvas id="scenery"></canvas>
+
+<div id="loading" class="screen">
+  <div class="logo"><span class="logo-small">Легенды гор</span><span class="logo-big">БУТРИ</span></div>
+  <div id="ldBox">
+    <div id="ldBar" class="frame"><i id="ldFill"></i></div>
+    <div id="ldText">Загрузка… 0%</div>
+  </div>
 </div>
-<div id="settingsPanel" class="hidden panel">
+
+<div id="gate" class="screen hidden">
+  <div class="logo"><span class="logo-small">Легенды гор</span><span class="logo-big">БУТРИ</span></div>
+  <div id="gateText">Нажмите, чтобы войти</div>
+</div>
+
+<div id="menu" class="screen hidden">
+  <div class="logo"><span class="logo-small">Легенды гор</span><span class="logo-big">БУТРИ</span></div>
+  <div class="menu-box frame">
+    <div id="newHero"><label id="mNameLbl"></label><input id="mName" maxlength="20" autocomplete="off" spellcheck="false"></div>
+    <button id="mStart" class="btn"></button>
+    <button id="mSettings" class="btn"></button>
+    <button id="mNew" class="btn"></button>
+  </div>
+  <div class="version">Село Бутри · Дагестан · 42.18° с.ш. 47.43° в.д.</div>
+</div>
+
+<div id="settingsPanel" class="panel frame hidden">
   <h2 id="sTitle"></h2><h3 id="sIface"></h3><div id="sList"></div>
-  <button id="sClose"></button>
+  <button id="sClose" class="btn"></button>
 </div>
-<div id="heroPanel" class="hidden panel"><h2 id="hName"></h2><div id="hStats"></div></div>
+<div id="heroPanel" class="panel frame hidden"><h2 id="hName"></h2><div id="hStats"></div></div>
+
 <div id="hud">
   <div id="hint"></div>
   <div id="houseInfo"></div>
   <div id="toast"></div>
   <div id="help"></div>
-  <button id="langBtn"></button>
+  <button id="langBtn" class="btn small"></button>
   <canvas id="minimap" width="160" height="160"></canvas>
   <div id="sector"></div>
   <div id="questTrack"></div>
 </div>
 <canvas id="bigmap" class="hidden" width="512" height="512"></canvas>
-<div id="dialog" class="hidden"><div id="dlgText"></div><div id="dlgNext"></div></div>
-<div id="journal" class="hidden"><h2 id="jTitle"></h2><div id="jList"></div></div>
-<div id="inventory" class="hidden"><h2 id="invTitle"></h2><div id="invList"></div></div>
+<div id="dialog" class="frame hidden"><div id="dlgText"></div><div id="dlgNext"></div></div>
+<div id="journal" class="panel frame hidden"><h2 id="jTitle"></h2><div id="jList"></div></div>
+
+<!-- Рюкзак: слева надетые вещи, справа ячейки -->
+<div id="inventory" class="panel frame hidden">
+  <h2 id="invTitle"></h2>
+  <div class="inv-wrap">
+    <div id="equipBox"><h3 id="eqTitle"></h3><div id="equipList"></div></div>
+    <div id="invGrid"></div>
+  </div>
+  <div id="invInfo"></div>
+</div>
+
 <script>
   // Если что-то сломалось — показать ошибку на экране загрузки, а не висеть молча.
-  function showErr(m) { var l = document.getElementById('loading'); if (l) l.querySelector('#ldText').innerHTML = 'Ошибка загрузки:<br><small>' + m + '</small><br><small>Пришлите скриншот Claude</small>'; }
+  function showErr(m) { var l = document.getElementById('ldText'); if (l && document.getElementById('loading')) l.innerHTML = 'Ошибка загрузки:<br><small>' + m + '</small><br><small>Пришлите скриншот Claude</small>'; }
   addEventListener('error', function (e) { showErr(e.message || e.target && e.target.src || 'файл не загрузился'); }, true);
   addEventListener('unhandledrejection', function (e) { showErr(e.reason && (e.reason.stack || e.reason.message) || e.reason); });
   setTimeout(function () { if (document.getElementById('loading')) showErr('слишком долго (браузер не поддерживает игру или медленный интернет)'); }, 60000);

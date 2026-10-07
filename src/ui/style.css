@@ -1,46 +1,106 @@
-html,body{margin:0;height:100%;overflow:hidden;background:#87a9c9;font-family:system-ui,sans-serif;color:#fff}
-canvas{display:block}
-#loading{position:fixed;inset:0;display:flex;align-items:flex-end;justify-content:center;background:#2b3a2f url(../../assets/menu/luga.jpg) center/cover;z-index:40}
-#loading::before{content:'';position:absolute;inset:0;background:linear-gradient(#0000 40%,#000c)}
-#ldBox{position:relative;width:min(560px,90vw);margin-bottom:8vh;text-align:center}
-#ldBox h1{color:#e8c872;font-size:clamp(26px,5vw,44px);margin:0 0 18px;text-shadow:0 2px 8px #000}
-#ldBar{height:14px;background:#0008;border:2px solid #c9a24a;border-radius:8px;overflow:hidden}
-#ldFill{display:block;height:100%;width:0;background:linear-gradient(90deg,#c9a24a,#f0d27a);transition:width .3s}
-#ldText{margin-top:10px;font-size:16px;text-shadow:0 1px 4px #000}
-#hud>*{position:fixed;text-shadow:0 1px 3px #000}
-#hint{bottom:90px;left:50%;transform:translateX(-50%);font-size:18px;background:#0007;padding:6px 14px;border-radius:8px;display:none}
-#houseInfo{top:12px;left:50%;transform:translateX(-50%);background:#0006;padding:6px 14px;border-radius:8px;display:none}
-#toast{top:60px;left:50%;transform:translateX(-50%);font-size:18px}
-#help{right:12px;bottom:12px;max-width:320px;text-align:right;font-size:12px;opacity:.75;background:#0003;padding:8px 10px;border-radius:8px;line-height:1.5}
-#langBtn{right:12px;top:12px;padding:6px 12px;border:0;border-radius:8px;background:#c9a24a;color:#222;font-weight:bold;cursor:pointer}
-#inventory{position:fixed;right:12px;top:56px;width:240px;background:#2b241cdd;border:2px solid #c9a24a;border-radius:10px;padding:10px}
-#inventory h2{margin:0 0 8px;font-size:18px;color:#e8c872}
-#inventory .row{display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #fff2}
-.hidden{display:none}
-#minimap{left:12px;top:12px;border:2px solid #c9a24a;border-radius:8px}
-#sector{left:12px;top:180px;font-size:16px;font-weight:bold;background:#0006;padding:3px 10px;border-radius:6px}
-#questTrack{right:12px;top:56px;max-width:300px;font-size:14px;background:#0003;padding:6px 10px;border-radius:8px;line-height:1.5}
-#questTrack b{color:#e8c872}
-#bigmap{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(90vw,90vh);height:min(90vw,90vh);border:3px solid #c9a24a;border-radius:10px;z-index:5}
-#dialog{position:fixed;left:50%;bottom:40px;transform:translateX(-50%);width:min(700px,92vw);background:#2b241cee;border:2px solid #c9a24a;border-radius:10px;padding:14px 18px;font-size:18px;line-height:1.5;z-index:6}
-#dlgText b{color:#e8c872}
-#dlgNext{text-align:right;font-size:13px;opacity:.7;margin-top:6px}
-#journal{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(500px,92vw);background:#2b241cee;border:2px solid #c9a24a;border-radius:10px;padding:14px 18px;z-index:6}
-#journal h2{margin:0 0 8px;color:#e8c872}
-#journal .q{margin:8px 0}
-#journal .done{opacity:.5;text-decoration:line-through}
-#inventory{top:200px}
-.panel{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(420px,92vw);background:#2b241cf2;border:2px solid #c9a24a;border-radius:12px;padding:18px 22px;z-index:20;text-align:center}
-.panel h1{color:#e8c872;font-size:28px;margin:4px 0 16px}
-.panel h2{color:#e8c872;margin:0 0 10px}
-.panel h3{margin:10px 0 6px;font-size:15px;opacity:.8}
-.panel button{display:block;width:100%;margin:8px 0;padding:10px;border:0;border-radius:8px;background:#c9a24a;color:#222;font-size:16px;font-weight:bold;cursor:pointer}
-.panel input{width:100%;box-sizing:border-box;padding:10px;font-size:18px;border-radius:8px;border:0;margin:6px 0 4px}
-.panel label{display:block;text-align:left}
-#sList label{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #fff2;cursor:pointer}
-#hStats{text-align:left;line-height:1.8}
-.bar{height:8px;background:#0006;border-radius:4px;overflow:hidden}.bar i{display:block;height:100%;background:#e8c872}
-#menuBg{position:fixed;inset:0;background:#2b3a2f center/cover;z-index:19;transition:background-image 1.5s}
-#menuBg::after{content:'';position:absolute;inset:0;background:linear-gradient(#0003,#000a)}
-#menu,#settingsPanel{z-index:30}#settingsPanel{z-index:31}
-#sList input{width:auto;margin:0 0 0 12px;transform:scale(1.3)}
+/* Оформление в духе старых фэнтези-RPG: тёмный камень, бронза и золото. */
+:root {
+  --gold: #e8c872; --gold2: #b8862f; --bronze: #6e4a1f; --stone: #1b1714; --stone2: #2a231c;
+  --text: #efe6d2; --dim: #b9ab90;
+  --title: 'Cormorant SC', 'PT Serif', Georgia, serif;
+  --body: 'PT Serif', Georgia, serif;
+}
+html, body { margin: 0; height: 100%; overflow: hidden; background: #0b0d10; font-family: var(--body); color: var(--text); }
+canvas { display: block; }
+.hidden { display: none !important; }
+
+/* ---------- Рамки и кнопки ---------- */
+.frame {
+  background: linear-gradient(180deg, #2a231ceb, #15110eee);
+  border: 2px solid var(--gold2);
+  box-shadow: 0 0 0 1px #000, 0 0 0 4px #3a2a14, 0 0 0 5px #000, inset 0 0 30px #000c, 0 10px 40px #000c;
+  border-radius: 4px; position: relative;
+}
+.frame::before, .frame::after { /* золотые уголки */
+  content: ''; position: absolute; width: 18px; height: 18px; border: 3px solid var(--gold); pointer-events: none;
+}
+.frame::before { top: -6px; left: -6px; border-right: 0; border-bottom: 0; }
+.frame::after { bottom: -6px; right: -6px; border-left: 0; border-top: 0; }
+.btn {
+  display: block; width: 100%; margin: 10px 0; padding: 12px 16px; cursor: pointer;
+  font: 700 20px var(--title); letter-spacing: 2px; color: var(--gold);
+  background: linear-gradient(180deg, #4a3520, #241a10 55%, #1a120b);
+  border: 2px solid #8a6326; border-radius: 3px;
+  box-shadow: inset 0 1px 0 #ffffff22, inset 0 -3px 6px #0008, 0 2px 0 #000;
+  text-shadow: 0 2px 2px #000; transition: .15s;
+}
+.btn:hover { color: #fff3c4; border-color: var(--gold); box-shadow: inset 0 1px 0 #ffffff33, 0 0 14px #e8c87266, 0 2px 0 #000; transform: translateY(-1px); }
+.btn:active { transform: translateY(1px); }
+.btn.small { width: auto; display: inline-block; font-size: 14px; padding: 6px 12px; margin: 0; }
+
+/* ---------- Заставка, загрузка, меню ---------- */
+#scenery { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 30; }
+.screen { position: fixed; inset: 0; z-index: 40; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.logo { display: flex; flex-direction: column; align-items: center; margin-bottom: 6vh; text-shadow: 0 4px 12px #000, 0 0 30px #000; }
+.logo-small { font: 700 clamp(16px, 2.6vw, 26px) var(--title); letter-spacing: 8px; color: var(--dim); }
+.logo-big {
+  font: 700 clamp(64px, 13vw, 150px) / 1 var(--title); letter-spacing: 14px;
+  background: linear-gradient(180deg, #fff6d0 10%, #e8c872 45%, #9a6a22 75%, #e8c872); -webkit-background-clip: text; background-clip: text; color: transparent;
+  filter: drop-shadow(0 4px 0 #2a1a08) drop-shadow(0 8px 16px #000);
+}
+#ldBox { width: min(560px, 86vw); text-align: center; position: absolute; bottom: 10vh; }
+#ldBar { height: 18px; padding: 3px; }
+#ldFill { display: block; height: 100%; width: 0; background: linear-gradient(180deg, #ffe9a8, #c9932f 60%, #8a5a18); box-shadow: 0 0 12px #e8c872aa; transition: width .3s; }
+#ldText { margin-top: 14px; font-size: 16px; color: var(--dim); text-shadow: 0 1px 4px #000; }
+#gateText { position: absolute; bottom: 14vh; font: 700 24px var(--title); letter-spacing: 4px; color: var(--gold); animation: pulse 2s infinite; text-shadow: 0 2px 8px #000; }
+@keyframes pulse { 50% { opacity: .35; } }
+#gate { cursor: pointer; }
+.menu-box { width: min(340px, 86vw); padding: 22px 26px 14px; }
+.version { position: absolute; bottom: 14px; font-size: 13px; color: #fff6; letter-spacing: 1px; }
+#newHero label { display: block; font: 700 18px var(--title); color: var(--dim); letter-spacing: 1px; margin-bottom: 6px; text-align: center; }
+#mName {
+  width: 100%; box-sizing: border-box; padding: 10px; font: 700 22px var(--title); text-align: center; color: var(--gold);
+  background: #0c0a08; border: 2px solid #6e4a1f; border-radius: 3px; outline: none; box-shadow: inset 0 2px 8px #000;
+}
+#mName:focus { border-color: var(--gold); }
+
+/* ---------- Окна в игре ---------- */
+.panel { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(420px, 92vw); padding: 18px 22px; z-index: 50; }
+.panel h2 { margin: 0 0 12px; text-align: center; font: 700 26px var(--title); color: var(--gold); letter-spacing: 2px; border-bottom: 1px solid #8a632655; padding-bottom: 8px; }
+.panel h3 { margin: 10px 0 6px; font: 700 17px var(--title); color: var(--dim); letter-spacing: 1px; }
+#settingsPanel { z-index: 60; }
+#sList label { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #ffffff14; cursor: pointer; }
+#sList input { width: 20px; height: 20px; accent-color: var(--gold2); }
+#hStats { line-height: 1.9; }
+.bar { height: 10px; background: #0008; border: 1px solid #6e4a1f; overflow: hidden; } .bar i { display: block; height: 100%; background: linear-gradient(90deg, #c9932f, #ffe9a8); }
+
+#hud > * { position: fixed; text-shadow: 0 1px 3px #000; }
+#hint { bottom: 110px; left: 50%; transform: translateX(-50%); font-size: 18px; background: #000a; border: 1px solid #8a632688; padding: 6px 16px; border-radius: 3px; display: none; }
+#houseInfo { top: 12px; left: 50%; transform: translateX(-50%); font: 700 18px var(--title); color: var(--gold); background: #0008; padding: 4px 14px; border-radius: 3px; display: none; }
+#toast { top: 60px; left: 50%; transform: translateX(-50%); font: 700 22px var(--title); color: var(--gold); letter-spacing: 1px; }
+#help { right: 12px; bottom: 12px; max-width: 320px; text-align: right; font-size: 12px; opacity: .7; background: #0003; padding: 8px 10px; border-radius: 3px; line-height: 1.5; }
+#langBtn { right: 12px; top: 12px; }
+#minimap { left: 12px; top: 12px; border: 2px solid var(--gold2); box-shadow: 0 0 0 1px #000, 0 0 0 3px #3a2a14; border-radius: 50%; }
+#sector { left: 12px; top: 182px; width: 164px; text-align: center; font: 700 16px var(--title); color: var(--gold); }
+#questTrack { right: 12px; top: 56px; max-width: 300px; font-size: 14px; background: #0004; padding: 8px 12px; border-left: 2px solid var(--gold2); line-height: 1.5; }
+#questTrack b { color: var(--gold); font-family: var(--title); font-size: 16px; }
+#bigmap { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(90vw, 90vh); height: min(90vw, 90vh); border: 3px solid var(--gold2); z-index: 45; box-shadow: 0 0 0 2px #000, 0 10px 50px #000; }
+#dialog { position: fixed; left: 50%; bottom: 40px; transform: translateX(-50%); width: min(720px, 92vw); padding: 16px 22px; font-size: 19px; line-height: 1.55; z-index: 46; }
+#dlgText b { color: var(--gold); font-family: var(--title); font-size: 21px; }
+#dlgNext { text-align: right; font-size: 13px; color: var(--dim); margin-top: 6px; }
+#journal .q { margin: 10px 0; } #journal .q b { color: var(--gold); font-family: var(--title); font-size: 18px; }
+#journal .done { opacity: .5; text-decoration: line-through; }
+
+/* ---------- Рюкзак ---------- */
+#inventory { width: min(640px, 96vw); }
+.inv-wrap { display: flex; gap: 18px; }
+#equipBox { width: 180px; flex: none; }
+#equipList { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+#invGrid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; flex: 1; align-content: start; }
+.slot {
+  position: relative; aspect-ratio: 1; min-width: 0; cursor: pointer;
+  background: radial-gradient(#2c241c, #120e0b); border: 2px solid #4a3520; border-radius: 3px;
+  box-shadow: inset 0 0 10px #000; display: flex; align-items: center; justify-content: center;
+}
+.slot:hover { border-color: var(--gold); box-shadow: inset 0 0 10px #000, 0 0 8px #e8c87266; }
+.slot img { width: 90%; height: 90%; object-fit: contain; filter: drop-shadow(0 2px 2px #000); pointer-events: none; }
+.slot .n { position: absolute; right: 3px; bottom: 1px; font: 700 14px var(--body); color: #fff; text-shadow: 0 0 3px #000, 0 0 3px #000; }
+.slot .lbl { position: absolute; top: 2px; left: 4px; font-size: 10px; color: var(--dim); opacity: .8; pointer-events: none; }
+.slot.equip { border-color: #8a6326; }
+#invInfo { margin-top: 10px; min-height: 22px; font-size: 14px; color: var(--dim); text-align: center; }
+@media (max-width: 560px) { .inv-wrap { flex-direction: column; } #equipBox { width: auto; } #equipList { grid-template-columns: repeat(6, 1fr); } }

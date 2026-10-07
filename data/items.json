@@ -1,14 +1,178 @@
 {
   "_note": "Предметы для собирательства. count — сколько штук, shape — форма (herb, stone, stick, mushroom, flower, horn, hoof, arrowhead). near — где разбросать: village (по селу), houses (у дворов), place:<id> (вокруг места из places.json). quest: true — предмет крутится, чтобы его было видно.",
   "items": [
-    { "id": "herb",      "shape": "herb",      "color": "#4f9a3a", "count": 60 },
-    { "id": "stone",     "shape": "stone",     "color": "#9a958c", "count": 50 },
-    { "id": "stick",     "shape": "stick",     "color": "#7a5532", "count": 40 },
-    { "id": "mushroom",  "shape": "mushroom",  "color": "#c0442f", "count": 25 },
-    { "id": "flower",    "shape": "flower",    "color": "#e7d24a", "count": 40 },
-    { "id": "horn",      "shape": "horn",      "color": "#e6dcc0", "count": 16, "near": "houses",      "quest": true },
-    { "id": "hoof",      "shape": "hoof",      "color": "#3a3028", "count": 12, "near": "houses",      "quest": true },
-    { "id": "arrowhead", "shape": "arrowhead", "color": "#b07a3a", "count": 8,  "near": "place:nart", "quest": true },
-    { "id": "wool",      "shape": "stone",     "color": "#f4f1ea", "count": 14, "near": "place:pasture", "quest": true }
-  ]
+    {
+      "id": "herb",
+      "shape": "herb",
+      "color": "#4f9a3a",
+      "count": 60
+    },
+    {
+      "id": "stone",
+      "shape": "stone",
+      "color": "#9a958c",
+      "count": 50
+    },
+    {
+      "id": "stick",
+      "shape": "stick",
+      "color": "#7a5532",
+      "count": 40
+    },
+    {
+      "id": "mushroom",
+      "shape": "mushroom",
+      "color": "#c0442f",
+      "count": 25
+    },
+    {
+      "id": "flower",
+      "shape": "flower",
+      "color": "#e7d24a",
+      "count": 40
+    },
+    {
+      "id": "horn",
+      "shape": "horn",
+      "color": "#e6dcc0",
+      "count": 16,
+      "near": "houses",
+      "quest": true
+    },
+    {
+      "id": "hoof",
+      "shape": "hoof",
+      "color": "#3a3028",
+      "count": 12,
+      "near": "houses",
+      "quest": true
+    },
+    {
+      "id": "arrowhead",
+      "shape": "arrowhead",
+      "color": "#b07a3a",
+      "count": 8,
+      "near": "place:nart",
+      "quest": true
+    },
+    {
+      "id": "wool",
+      "shape": "stone",
+      "color": "#f4f1ea",
+      "count": 14,
+      "near": "place:pasture",
+      "quest": true
+    }
+  ],
+  "_note_defs": "defs — описание всех предметов: shape (форма), color, stack (сколько в одной ячейке рюкзака), equip (куда надевается: head, body, feet, hand, neck, belt).",
+  "backpack": {
+    "_note": "Сколько ячеек в рюкзаке. Потом можно увеличить (например, за квест).",
+    "slots": 20
+  },
+  "defs": {
+    "herb": {
+      "shape": "herb",
+      "color": "#4f9a3a",
+      "stack": 20
+    },
+    "stone": {
+      "shape": "stone",
+      "color": "#9a958c",
+      "stack": 20
+    },
+    "stick": {
+      "shape": "stick",
+      "color": "#7a5532",
+      "stack": 20
+    },
+    "mushroom": {
+      "shape": "mushroom",
+      "color": "#c0442f",
+      "stack": 20
+    },
+    "flower": {
+      "shape": "flower",
+      "color": "#e7d24a",
+      "stack": 20
+    },
+    "horn": {
+      "shape": "horn",
+      "color": "#e6dcc0",
+      "stack": 10
+    },
+    "hoof": {
+      "shape": "hoof",
+      "color": "#3a3028",
+      "stack": 10
+    },
+    "arrowhead": {
+      "shape": "arrowhead",
+      "color": "#b07a3a",
+      "stack": 10
+    },
+    "wool": {
+      "shape": "stone",
+      "color": "#f4f1ea",
+      "stack": 10
+    },
+    "sacred_horn": {
+      "shape": "horn",
+      "color": "#e8c872",
+      "stack": 1,
+      "equip": "belt"
+    },
+    "amulet": {
+      "shape": "amulet",
+      "color": "#e8c872",
+      "stack": 1,
+      "equip": "neck"
+    },
+    "potion": {
+      "shape": "potion",
+      "color": "#5a9a7a",
+      "stack": 5
+    },
+    "papakha": {
+      "shape": "papakha",
+      "color": "#efece6",
+      "stack": 1,
+      "equip": "head"
+    },
+    "papakha_black": {
+      "shape": "papakha",
+      "color": "#2b2b2b",
+      "stack": 1,
+      "equip": "head"
+    },
+    "cherkeska": {
+      "shape": "coat",
+      "color": "#4a2e22",
+      "stack": 1,
+      "equip": "body"
+    },
+    "boots": {
+      "shape": "boots",
+      "color": "#222222",
+      "stack": 1,
+      "equip": "feet"
+    },
+    "staff": {
+      "shape": "staff",
+      "color": "#6b4a2a",
+      "stack": 1,
+      "equip": "hand"
+    }
+  },
+  "start": {
+    "_note": "Что есть у нового героя.",
+    "equip": {
+      "head": "papakha",
+      "body": "cherkeska",
+      "feet": "boots"
+    },
+    "items": {
+      "staff": 1,
+      "papakha_black": 1
+    }
+  }
 }

@@ -13,7 +13,7 @@ export function sectorPos(sector, dx = 0, dz = 0) {
 }
 
 // Карта с сеткой секторов: мини-карта в углу и большая по клавише M.
-export function createMapView(terrain, houses, marks) {
+export function createMapView(terrain, houses, marks, roads) {
   const bg = document.createElement('canvas'); bg.width = bg.height = 512;
   const g = bg.getContext('2d'), k = 512 / MAP;
   const img = g.createImageData(512, 512);
@@ -23,6 +23,13 @@ export function createMapView(terrain, houses, marks) {
     img.data[i] = 90 + hgt * 90; img.data[i + 1] = 120 + hgt * 60; img.data[i + 2] = 60 + hgt * 50; img.data[i + 3] = 255;
   }
   g.putImageData(img, 0, 0);
+  // дороги и тропинки
+  if (roads) for (const { kind, pts } of roads.lines) {
+    g.strokeStyle = kind === 'path' ? '#d8c08a' : '#f3ead8'; g.lineWidth = kind === 'main' ? 3 : kind === 'street' ? 2 : 1;
+    g.setLineDash(kind === 'path' ? [3, 3] : []);
+    g.beginPath(); pts.forEach((p, i) => g[i ? 'lineTo' : 'moveTo']((p.x + MAP / 2) * k, (p.z + MAP / 2) * k)); g.stroke();
+  }
+  g.setLineDash([]);
   g.fillStyle = '#5a4a3a';
   for (const h of houses) g.fillRect((h.center.x + MAP / 2) * k - 1.5, (h.center.z + MAP / 2) * k - 1.5, 3, 3);
   g.strokeStyle = '#fff8'; g.fillStyle = '#fff'; g.font = 'bold 14px sans-serif';

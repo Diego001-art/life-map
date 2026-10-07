@@ -6,7 +6,7 @@ const OVERPASS = [
   'https://overpass.kumi.systems/api/interpreter',
 ];
 
-async function loadOsm(lat, lon, radius) {
+export async function loadOsm(lat, lon, radius = 900) {
   const q = `[out:json][timeout:25];(way(around:${radius},${lat},${lon})[building];way(around:${radius},${lat},${lon})[highway];);out geom;`;
   // Сначала локальная копия (если её сохранили), потом интернет.
   try { const r = await fetch('data/houses/osm-cache.json'); if (r.ok) return await r.json(); } catch {}
@@ -21,9 +21,14 @@ async function loadOsm(lat, lon, radius) {
   return null;
 }
 
-export async function createHouses(scene, terrain, geo) {
+// Улицы из OpenStreetMap в координатах игры (для roads.js).
+export function osmRoadLines(osm, geo) {
+  if (!osm) return [];
+  return osm.elements.filter(e => e.geometry && e.tags.highway).map(e => e.geometry.map(g => geo.toXZ(g.lat, g.lon)));
+}
+
+export async function createHouses(scene, terrain, geo, osm, roads) {
   const cfg = await (await fetch('data/houses/houses.json')).json();
-  const osm = await loadOsm(terrain.lat, terrain.lon, 900);
   const houses = []; // { id, name, center, radius, mesh }
 
   // Стена — текстура известняка из фото села (assets/tex/wall.jpg).
@@ -91,58 +96,51 @@ export async function createHouses(scene, terrain, geo) {
     houses.push({ id, name: opts.name, photo: opts.photo, center: new THREE.Vector3(cx, minY, cz), radius, top, mesh, roof });
   }
 
-  const roads = [];
   if (osm) {
     for (const el of osm.elements) {
-      if (!el.geometry) continue;
+      if (!el.geometry || !el.tags.building) continue;
       const pts = el.geometry.map(g => geo.toXZ(g.lat, g.lon));
-      if (el.tags.building) {
-        const o = cfg.houses[el.id] || {};
-        const lv = parseInt(el.tags['building:levels']);
-        addHouse(String(el.id), pts.slice(0, -1), { floors: lv || undefined, ...o });
-      } else if (el.tags.highway) roads.push(pts);
+      const o = cfg.houses[el.id] || {};
+      const lv = parseInt(el.tags['building:levels']);
+      addHouse(String(el.id), pts.slice(0, -1), { floors: lv || undefined, ...o });
     }
   }
-  // Если OpenStreetMap недоступен — строим примерное село, чтобы мир не был пустым.
+  // Если OpenStreetMap недоступен — строим село вдоль улиц, как в Бутри: дома стоят рядами по обе стороны.
+  const free = (pts, gap) => pts.every(p => roads.distToRoad(p.x, p.z) > gap) &&
+    !houses.some(h => pts.some(p => Math.hypot(h.center.x - p.x, h.center.z - p.z) < h.radius + 1.5));
+  const rect = (x, z, ang, w, d) => { const c = Math.cos(ang), s2 = Math.sin(ang); return [[-w / 2, -d / 2], [w / 2, -d / 2], [w / 2, d / 2], [-w / 2, d / 2]].map(([u, v]) => ({ x: x + u * c - v * s2, z: z + u * s2 + v * c })); };
   if (houses.length < 20) {
-    let n = 0, tries = 0;
-    while (n < 260 && tries++ < 6000) {
-      const a = Math.random() * 6.28, r = Math.sqrt(Math.random()) * 330, x = Math.cos(a) * r, z = Math.sin(a) * r;
-      const slope = Math.abs(terrain.heightAt(x + 4, z) - terrain.heightAt(x - 4, z)) + Math.abs(terrain.heightAt(x, z + 4) - terrain.heightAt(x, z - 4));
-      if (slope > 6) continue;
-      if (houses.some(h => Math.hypot(h.center.x - x, h.center.z - z) < h.radius + 9)) continue;
-      // дом вытянут вдоль склона, как в горных сёлах
+    let n = 0;
+    for (const { kind, pts } of roads.lines) {
+      if (kind === 'path') continue;
+      let next = 0;
+      for (let i = 1; i < pts.length - 1; i++) {
+        const p = pts[i]; if (Math.hypot(p.x, p.z) > 380) continue;
+        if ((next -= 3) > 0) continue; // шаг вдоль улицы
+        const a = pts[i - 1], b = pts[i + 1], ang = Math.atan2(b.z - a.z, b.x - a.x);
+        for (const side of [1, -1]) {
+          if (Math.random() < 0.15) continue; // кое-где пустыри и огороды
+          const w = 8 + Math.random() * 5, d = 6 + Math.random() * 3, off = (kind === 'main' ? 2.75 : 1.8) + 2.5 + d / 2 + Math.random() * 2;
+          const x = p.x - Math.sin(ang) * off * side, z = p.z + Math.cos(ang) * off * side;
+          const r = rect(x, z, ang, w, d);
+          if (free(r, 1.2)) addHouse('gen-' + n++, r, {});
+        }
+        next = 14 + Math.random() * 6;
+      }
+    }
+    // Ещё немного домов между улицами (на склонах выше и ниже).
+    for (let tries = 0; tries < 3000 && n < 330; tries++) {
+      const a = Math.random() * 6.28, rr = Math.sqrt(Math.random()) * 300, x = Math.cos(a) * rr, z = Math.sin(a) * rr;
+      if (roads.distToRoad(x, z) > 40) continue; // не слишком далеко от улицы
       const gx = terrain.heightAt(x + 1, z) - terrain.heightAt(x - 1, z), gz = terrain.heightAt(x, z + 1) - terrain.heightAt(x, z - 1);
-      const ang = Math.atan2(gz, gx) + Math.PI / 2, w = 7 + Math.random() * 6, d = 6 + Math.random() * 3;
-      const c = Math.cos(ang), s2 = Math.sin(ang);
-      const pts = [[-w / 2, -d / 2], [w / 2, -d / 2], [w / 2, d / 2], [-w / 2, d / 2]].map(([u, v]) => ({ x: x + u * c - v * s2, z: z + u * s2 + v * c }));
-      addHouse('gen-' + n++, pts, {});
+      const r = rect(x, z, Math.atan2(gz, gx) + Math.PI / 2, 7 + Math.random() * 5, 6 + Math.random() * 3);
+      if (free(r, 2)) addHouse('gen-' + n++, r, {});
     }
   }
 
   for (const e of cfg.extra || []) {
     const { x, z, w, d } = e;
     addHouse(e.id || `extra-${x}-${z}`, [{ x: x - w / 2, z: z - d / 2 }, { x: x + w / 2, z: z - d / 2 }, { x: x + w / 2, z: z + d / 2 }, { x: x - w / 2, z: z + d / 2 }], e);
-  }
-
-  // Дороги — полосы, лежащие на земле.
-  const roadMat = new THREE.MeshLambertMaterial({ color: '#8c7b63' });
-  for (const line of roads) {
-    const verts = [];
-    for (let i = 0; i < line.length - 1; i++) {
-      const a = line[i], b = line[i + 1];
-      const dx = b.x - a.x, dz = b.z - a.z, L = Math.hypot(dx, dz) || 1;
-      const nx = -dz / L * 2, nz = dx / L * 2;
-      const y = (p) => terrain.heightAt(p.x, p.z) + 0.15;
-      const A1 = [a.x + nx, y(a), a.z + nz], A2 = [a.x - nx, y(a), a.z - nz];
-      const B1 = [b.x + nx, y(b), b.z + nz], B2 = [b.x - nx, y(b), b.z - nz];
-      verts.push(...A1, ...A2, ...B1, ...A2, ...B2, ...B1);
-    }
-    const g = new THREE.BufferGeometry();
-    g.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
-    g.computeVertexNormals();
-    const m = new THREE.Mesh(g, roadMat); m.material.side = THREE.DoubleSide; m.receiveShadow = true;
-    scene.add(m);
   }
 
   // Убрать дома, которые стоят на месте мечети, магазина и т.п.

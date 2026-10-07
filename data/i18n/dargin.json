@@ -52,5 +52,19 @@
   "xpGain": "",
   "received": "",
   "given": "",
-  "pasture": ""
+  "pasture": "",
+  "item.papakha": "",
+  "item.papakha_black": "",
+  "item.cherkeska": "",
+  "item.boots": "",
+  "item.staff": "",
+  "full": "",
+  "equipment": "",
+  "slot.head": "",
+  "slot.body": "",
+  "slot.feet": "",
+  "slot.hand": "",
+  "slot.neck": "",
+  "slot.belt": "",
+  "invHint": ""
 }
