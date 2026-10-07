@@ -71,5 +71,17 @@ export const hud = {
     $('hStats').innerHTML = `${t('level')}: <b>${d.level}</b><br>${t('xp')}: ${d.xp} / ${h.need()}<div class="bar"><i style="width:${d.xp / h.need() * 100}%"></i></div>${t('strength')}: ${d.strength}<br>${t('stamina')}: ${d.stamina}`;
   },
   toggleHero(h) { $('heroPanel').classList.toggle('hidden'); this.heroPanel(h); },
+  vitals(st) {
+    $('hpFill').style.width = (st.hp / st.maxHp * 100) + '%';
+    $('stFill').style.width = (st.stamina / st.maxStamina * 100) + '%';
+  },
+  lockHint(show) { $('lockHint').style.display = show ? 'block' : 'none'; $('lockHint').textContent = t('clickToPlay'); },
+  showDeath(onRespawn) {
+    $('deathTitle').textContent = t('died'); $('respawnBtn').textContent = t('respawn');
+    $('deathScreen').classList.remove('hidden');
+    $('respawnBtn').onclick = () => { $('deathScreen').classList.add('hidden'); onRespawn(); };
+  },
+  // Открыто ли какое-нибудь окно (тогда мышь нужна для интерфейса, а не для боя)
+  get panelOpen() { return ['inventory', 'journal', 'heroPanel', 'bigmap', 'settingsPanel'].some(id => !$(id).classList.contains('hidden')) || this.inDialog || !$('deathScreen').classList.contains('hidden'); },
   done() { $('loading').remove(); },
 };

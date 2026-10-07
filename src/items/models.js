@@ -1,5 +1,6 @@
 // 3D-модели предметов: на земле, в руках героя и для картинок в рюкзаке.
 import * as THREE from 'three';
+import { dagger, saber } from '../character/rig.js';
 
 export function makeMesh(shape, color) {
   const m = new THREE.MeshStandardMaterial({ color, roughness: 0.75 });
@@ -18,6 +19,8 @@ export function makeMesh(shape, color) {
     const h = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.14, 0.14, 6, 1, false, 0, Math.PI * 1.7), m); h.position.y = 0.07; g.add(h);
   } else if (shape === 'arrowhead') {
     const a = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.35, 3), m); a.rotation.z = Math.PI / 2; a.position.y = 0.08; g.add(a);
+  } else if (shape === 'dagger') { const d = dagger(); d.rotation.z = Math.PI / 2; d.position.y = 0.05; g.add(d);
+  } else if (shape === 'saber') { const d = saber(); d.rotation.z = Math.PI / 2; d.position.set(0.4, 0.05, 0); g.add(d);
   } else if (shape === 'amulet') {
     const r = new THREE.Mesh(new THREE.TorusGeometry(0.12, 0.025, 4, 10), m); r.position.y = 0.2; g.add(r);
     const st = new THREE.Mesh(new THREE.OctahedronGeometry(0.08), new THREE.MeshStandardMaterial({ color: '#c0302a', roughness: 0.8 })); st.position.y = 0.08; g.add(st);

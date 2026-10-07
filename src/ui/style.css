@@ -5,7 +5,7 @@
   --title: 'Cormorant SC', 'PT Serif', Georgia, serif;
   --body: 'PT Serif', Georgia, serif;
 }
-html, body { margin: 0; height: 100%; overflow: hidden; background: #0b0d10; font-family: var(--body); color: var(--text); }
+html, body { user-select: none; -webkit-user-select: none; margin: 0; height: 100%; overflow: hidden; background: #0b0d10; font-family: var(--body); color: var(--text); }
 canvas { display: block; }
 .hidden { display: none !important; }
 
@@ -53,7 +53,7 @@ canvas { display: block; }
 .menu-box { width: min(340px, 86vw); padding: 22px 26px 14px; }
 .version { position: absolute; bottom: 14px; font-size: 13px; color: #fff6; letter-spacing: 1px; }
 #newHero label { display: block; font: 700 18px var(--title); color: var(--dim); letter-spacing: 1px; margin-bottom: 6px; text-align: center; }
-#mName {
+#mName { user-select: text; -webkit-user-select: text;
   width: 100%; box-sizing: border-box; padding: 10px; font: 700 22px var(--title); text-align: center; color: var(--gold);
   background: #0c0a08; border: 2px solid #6e4a1f; border-radius: 3px; outline: none; box-shadow: inset 0 2px 8px #000;
 }
@@ -109,7 +109,7 @@ canvas { display: block; }
 .slot .lbl { position: absolute; top: 2px; left: 4px; font-size: 10px; color: var(--dim); opacity: .8; pointer-events: none; }
 .slot.equip { border-color: #8a6326; }
 #invInfo { margin-top: 10px; min-height: 22px; font-size: 14px; color: var(--dim); text-align: center; }
-@media (max-width: 560px) { .inv-wrap { flex-direction: column; } #equipBox { width: auto; } #equipList { grid-template-columns: repeat(6, 1fr); } }
+@media (max-width: 560px) { .inv-wrap { flex-direction: column; } #equipBox { width: auto; } #equipList { grid-template-columns: repeat(7, 1fr); } }
 
 /* плавные появления окон и переходы */
 .panel:not(.hidden), #dialog:not(.hidden), .menu-box { animation: pop .22s ease-out; }
@@ -120,3 +120,16 @@ canvas { display: block; }
 #fade { position: fixed; inset: 0; background: #000; pointer-events: none; opacity: 0; transition: opacity .6s; z-index: 70; }
 #fade.on { opacity: 1; transition: opacity .25s; }
 #bigmap:not(.hidden) { animation: pop .2s ease-out; }
+
+/* здоровье и выносливость — тонкие полоски, не мешают обзору */
+#vitals { left: 50%; bottom: 22px; transform: translateX(-50%); width: min(420px, 60vw); display: flex; flex-direction: column; gap: 4px; }
+.vbar { height: 7px; background: #0009; border: 1px solid #6e4a1f; box-shadow: 0 0 0 1px #000; }
+.vbar i { display: block; height: 100%; width: 100%; transition: width .15s; }
+.vbar.hp i { background: linear-gradient(180deg, #c8463a, #7a1c16); }
+.vbar.st i { background: linear-gradient(180deg, #d8c070, #8a7428); }
+.vbar.st { height: 4px; width: 70%; align-self: center; }
+#lockHint { left: 50%; top: 45%; transform: translateX(-50%); font: 700 18px var(--title); color: var(--gold); letter-spacing: 1px; background: #0008; padding: 8px 16px; border: 1px solid #8a632688; display: none; }
+#deathScreen { position: fixed; inset: 0; z-index: 65; display: flex; flex-direction: column; align-items: center; justify-content: center; background: radial-gradient(#3a0a0a66, #000c); animation: fadein 1.2s; }
+.death-title { font: 700 clamp(48px, 9vw, 96px) var(--title); color: #c8463a; letter-spacing: 10px; text-shadow: 0 4px 20px #000; margin-bottom: 30px; }
+#deathScreen .btn { width: 280px; }
+#hint { bottom: 64px; }

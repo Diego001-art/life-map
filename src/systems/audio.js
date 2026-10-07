@@ -70,8 +70,27 @@ export function createAudio() {
     const g = ctx.createGain(); g.gain.value = (run ? 0.22 : 0.14) * (surface === 'road' ? 1 : 0.8);
     b.connect(f).connect(g).connect(master); b.start(t);
   }
+  // звуки боя: свист клинка, глухой удар, звон металла о камень
+  function noiseHit(dur, freq, q, type, gain, sweep) {
+    if (!ctx || !on) return;
+    const t = ctx.currentTime, b = ctx.createBufferSource(), buf = ctx.createBuffer(1, ctx.sampleRate * dur, ctx.sampleRate), d = buf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / d.length, 2);
+    b.buffer = buf; const f = ctx.createBiquadFilter(); f.type = type; f.frequency.value = freq; f.Q.value = q;
+    if (sweep) { f.frequency.setValueAtTime(freq * 0.4, t); f.frequency.exponentialRampToValueAtTime(freq * 1.6, t + dur); }
+    const g = ctx.createGain(); g.gain.value = gain; b.connect(f).connect(g).connect(master); b.start(t);
+  }
+  function tone(freq, dur, gain, type = 'triangle') {
+    if (!ctx || !on) return;
+    const t = ctx.currentTime, o = ctx.createOscillator(), g = ctx.createGain(); o.type = type; o.frequency.value = freq;
+    g.gain.setValueAtTime(gain, t); g.gain.exponentialRampToValueAtTime(0.001, t + dur); o.connect(g).connect(master); o.start(t); o.stop(t + dur);
+  }
   return {
     footstep,
+    swing(heavy) { noiseHit(heavy ? 0.35 : 0.22, 900, 1.2, 'bandpass', heavy ? 0.35 : 0.22, true); },
+    thud() { noiseHit(0.15, 300, 0.8, 'lowpass', 0.5); },
+    clang() { noiseHit(0.08, 3000, 2, 'bandpass', 0.25); tone(1760 + Math.random() * 300, 0.4, 0.06); tone(2630, 0.3, 0.04, 'sine'); },
+    hurt() { noiseHit(0.2, 220, 1, 'lowpass', 0.6); tone(110, 0.25, 0.1, 'sine'); },
+    hiss() { noiseHit(0.6, 2400, 0.6, 'highpass', 0.18); },
     setRain(v) { if (rainG) rainG.gain.setTargetAtTime(v * 0.18, ctx.currentTime, 0.5); },
     setFire(v) { if (fireG) fireG.gain.setTargetAtTime(v * 0.05, ctx.currentTime, 0.3); crackle(v); },
     enable(v) { on = v; if (v) start(); if (master) master.gain.setTargetAtTime(v ? 0.6 : 0, ctx.currentTime, 0.3); },

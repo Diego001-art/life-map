@@ -15,6 +15,7 @@ import { createTrees } from './world/trees.js';
 import { createRocks, createBoundary } from './world/rocks.js';
 import { createCollision, houseColliders } from './world/collision.js';
 import { createPost } from './world/post.js';
+import { createCombat, createDummies } from './combat/combat.js';
 import { createMountains } from './world/mountains.js';
 import { createPlaces } from './world/places.js';
 import { sectorOf, createMapView } from './world/sectors.js';
@@ -112,13 +113,26 @@ for (const n of npcs.list) collision.addDynamic({ type: 'circle', get x() { retu
 // Герой и системы
 const inventory = createInventory(itemsCfg, () => hud.renderInventory());
 hud.inv = inventory;
-const player = createPlayer(scene, terrain, collision, inventory);
+const audio = createAudio();
+// Бой: цели (чучела на площади, Горный змей), хитбоксы, урон
+const combat = createCombat(scene, terrain, effects, audio, hud);
+const dummies = createDummies(scene, terrain, combat, village.square, collision);
+const ladders = Object.values(places).filter(p => p.ladder).map(p => p.ladder);
+const platforms = Object.values(places).filter(p => p.platform).map(p => p.platform);
+step('Герой', 86); await frame();
+const player = await createPlayer({ scene, terrain, collision, inventory, combat, audio, hud, ladders, platforms });
 hud.onDress = () => player.dress();
 const cam = createCamera(renderer.domElement, terrain, collision);
+player.onHitLanded = (a) => cam.kick(a);
 const post = createPost(renderer, scene, cam.camera);
 const hero = createHero((lvl) => hud.toast(t('levelUp', { lvl })));
 setHeroName(() => hero.name);
-const audio = createAudio();
+// Змей: по нему можно бить, но каменную чешую не пробить — нужен меч нартов (сюжет не меняется)
+const serpent = places.cave && places.cave.serpent;
+let serpentNoted = false;
+if (serpent) combat.addTarget({ id: 'serpent', radius: 1.6, active: () => serpent.awake && serpent.object.visible, pos: () => serpent.headWorld(),
+  onHit(info) { combat.impact(info.at, 'spark'); cam.kick(0.3); if (!serpentNoted) { serpentNoted = true; hud.toast(t('serpentImmune')); } } });
+player.onDeath = () => setTimeout(() => { cam.unlock(); hud.showDeath(() => player.respawn(village.square)); }, 2600);
 const events = {
   serpentWakes(silent) { const s = places.cave && places.cave.serpent; if (s) { s.object.visible = true; s.wake(); } if (!silent) { hud.toast(t('serpentWakes')); audio.eagle(); } },
   fastRun(silent) { player.state.speedBoost = 1.5; if (!silent) hud.toast(t('fastRun')); },
@@ -151,31 +165,44 @@ const menu = createMenu({
 hud.applySettings(settings);
 
 let nearNpc = null, talkNpc = null;
-createInput({
-  Escape: () => menu.toggle(),
-  KeyC: () => hud.toggleHero(hero),
+const input = createInput({
+  Escape: () => { if (performance.now() - lastUnlock < 400) return; menu.toggle(); },
+  KeyH: () => hud.toggleHero(hero),
   KeyE: () => {
-    if (menu.open) return;
+    if (menu.open || player.dead) return;
     if (hud.inDialog) return hud.nextLine();
+    if (player.state.mode === 'climb' || player.startClimb()) return; // лестница
     if (nearNpc) {
-      talkNpc = nearNpc;
+      talkNpc = nearNpc; player.act('Interact');
       hud.setSpeaker(tr(nearNpc.name), nearNpc.object);
       if (!quests.talk(nearNpc.id)) hud.dialog([{ ru: 'Салам алейкум!', dargin: '' }]);
       return;
     }
-    if (gathering.pick() === 'full') hud.toast(t('full'));
+    const r = gathering.pick();
+    if (r === 'full') hud.toast(t('full'));
+    else if (r === 'ok') player.act('Pickup');
   },
   KeyI: () => hud.toggleInventory(),
   KeyB: () => hud.toggleInventory(),
   KeyJ: () => hud.toggleJournal(),
   KeyM: () => map.toggle(),
 });
-const input = createInput({});
+// Мышь управляет боем, только когда курсор захвачен игрой и не открыто ни одно окно.
+input.setEnabled(() => cam.locked && !hud.panelOpen && !menu.open);
+cam.allowLock = () => !hud.panelOpen && !menu.open && !document.getElementById('gate');
+let wasLocked = false, unlockByUs = false, lastUnlock = -1e9;
+const freeMouse = () => { if (cam.locked) { unlockByUs = true; cam.unlock(); } };
+document.addEventListener('pointerlockchange', () => {
+  if (cam.locked) { wasLocked = true; return; }
+  lastUnlock = performance.now();
+  if (wasLocked && !unlockByUs && !hud.panelOpen && !menu.open && !player.dead) menu.show(); // Esc отпустил курсор → меню
+  wasLocked = false; unlockByUs = false;
+});
 document.getElementById('langBtn').onclick = () => { toggleLang(); hud.refresh(); menu.labels(); hud.quests(quests); hud.renderInventory(); };
 step('Готово', 100);
 await new Promise(r => setTimeout(r, 400));
 hud.done();
-window.game = { player, quests, inventory, hero, npcs, places, roads, atmo, houses, collision }; // для отладки в консоли браузера
+window.game = { player, quests, inventory, hero, npcs, places, roads, atmo, houses, collision, combat, cam }; // для отладки в консоли браузера
 
 // «Нажмите, чтобы войти» — после нажатия браузер разрешает звук.
 const gate = document.getElementById('gate');
@@ -195,8 +222,9 @@ let fpsAcc = 0, fpsN = 0, quality = 0;
 const RATIOS = [Math.min(devicePixelRatio, 1.75), 1.25, 1, 0.8];
 renderer.setAnimationLoop(() => {
   const dt = Math.min(clock.getDelta(), 0.05); time += dt;
-  if (menu.open || document.getElementById('gate')) return; // пока открыто меню — мир не рисуем (горы рисует заставка)
+  if (menu.open || document.getElementById('gate')) { input.endFrame(); return; } // пока открыто меню — мир не рисуем (горы рисует заставка)
   env.uTime.value = time;
+  if (hud.panelOpen) freeMouse(); // окно открыто — мышь для интерфейса
   if (!hud.inDialog) player.update(dt, input, cam.yaw);
   else talkNpc && (talkNpc.object.userData.talking = true);
   if (!hud.inDialog) talkNpc = null;
@@ -207,12 +235,18 @@ renderer.setAnimationLoop(() => {
   village.update(dt, p);
   if (stream) stream.update();
   eagle(dt, p);
-  for (const pl of Object.values(places)) if (pl.serpent) pl.serpent.update(dt);
+  if (serpent) serpent.update(dt, player.dead ? null : p,
+    (headPos) => { const r = player.takeHit(22, headPos, true); if (r === 'hit') cam.kick(0.6); return r; },
+    () => audio.hiss && audio.hiss());
+  dummies(dt);
   animals(dt);
   villagers(dt, p);
   nearNpc = npcs.update(p, quests.npcHasTask, time, talkNpc, dt);
   const near = nearNpc ? null : gathering.update(p, dt);
-  hud.hint(hud.inDialog ? '' : nearNpc ? t('talk', { name: tr(nearNpc.name) }) : near ? t('pickup', { item: t('item.' + near.id) }) : '');
+  const ladderNear = player.state.mode === 'loco' && player.nearLadder();
+  hud.hint(hud.inDialog ? '' : ladderNear ? t('climb') : nearNpc ? t('talk', { name: tr(nearNpc.name) }) : near ? t('pickup', { item: t('item.' + near.id) }) : '');
+  hud.vitals(player.state);
+  hud.lockHint(!cam.locked && !hud.panelOpen && !player.dead);
   // шаги: звук на каждом шаге, по дороге — хруст щебня
   const stepN = Math.floor(player.state.walk / Math.PI);
   if (stepN !== lastStep && player.moving && player.state.onGround) { lastStep = stepN; audio.footstep(roads.distToRoad(p.x, p.z) < 0 ? 'road' : 'grass', player.state.moving > 1.1); }
@@ -231,6 +265,7 @@ renderer.setAnimationLoop(() => {
     audio.setFire(Math.max(0, 1 - fd / 25));
   }
   post.render();
+  input.endFrame();
   // авто-качество
   fpsAcc += dt; fpsN++;
   if (fpsAcc > 3) {

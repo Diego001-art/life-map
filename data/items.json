@@ -64,7 +64,7 @@
       "quest": true
     }
   ],
-  "_note_defs": "defs — описание всех предметов: shape (форма), color, stack (сколько в одной ячейке рюкзака), equip (куда надевается: head, body, feet, hand, neck, belt).",
+  "_note_defs": "defs — описание всех предметов: shape (форма), color, stack (сколько в одной ячейке рюкзака), equip (куда надевается: head, body, feet, hand (основное оружие), dagger (кинжал), neck, belt).",
   "backpack": {
     "_note": "Сколько ячеек в рюкзаке. Потом можно увеличить (например, за квест).",
     "slots": 20
@@ -140,13 +140,13 @@
     },
     "papakha_black": {
       "shape": "papakha",
-      "color": "#2b2b2b",
+      "color": "#1b1714",
       "stack": 1,
       "equip": "head"
     },
     "cherkeska": {
       "shape": "coat",
-      "color": "#4a2e22",
+      "color": "#24211f",
       "stack": 1,
       "equip": "body"
     },
@@ -161,18 +161,31 @@
       "color": "#6b4a2a",
       "stack": 1,
       "equip": "hand"
+    },
+    "kinjal": {
+      "shape": "dagger",
+      "color": "#c9c6be",
+      "stack": 1,
+      "equip": "dagger"
+    },
+    "shashka": {
+      "shape": "saber",
+      "color": "#cfccc4",
+      "stack": 1,
+      "equip": "hand"
     }
   },
   "start": {
-    "_note": "Что есть у нового героя.",
+    "_note": "Что есть у нового героя (по образу горца: чёрная папаха, чёрная черкеска, сапоги, кинжал).",
     "equip": {
-      "head": "papakha",
+      "head": "papakha_black",
       "body": "cherkeska",
-      "feet": "boots"
+      "feet": "boots",
+      "dagger": "kinjal"
     },
     "items": {
       "staff": 1,
-      "papakha_black": 1
+      "papakha": 1
     }
   }
 }

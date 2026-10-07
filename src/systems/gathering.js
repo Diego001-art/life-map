@@ -39,6 +39,7 @@ export async function createGathering(scene, terrain, houses, places, inventory,
       if (!inventory.canAdd(near.id)) return 'full'; // рюкзак полон
       scene.remove(near.mesh); list.splice(list.indexOf(near), 1);
       inventory.add(near.id); onPick(near.id); near = null;
+      return 'ok';
     },
   };
 }

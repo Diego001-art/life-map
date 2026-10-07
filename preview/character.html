@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Герой — просмотр модели и анимаций</title>
+<script type="importmap">{ "imports": { "three": "../lib/three.module.js", "three/addons/": "../lib/addons/" } }</script>
+<style>
+  body { margin: 0; background: #1a1816; color: #e8dcc0; font: 14px Georgia, serif; overflow: hidden; }
+  #ui { position: fixed; left: 0; top: 0; bottom: 0; width: 210px; overflow: auto; background: #0008; padding: 10px; box-sizing: border-box; }
+  #ui button { display: block; width: 100%; margin: 3px 0; padding: 6px; background: #2a231c; color: #e8c872; border: 1px solid #6e4a1f; cursor: pointer; font: 13px Georgia, serif; text-align: left; }
+  #ui button.on { background: #6e4a1f; color: #fff; }
+  h3 { margin: 4px 0 8px; color: #e8c872; }
+</style>
+</head>
+<body>
+<div id="ui"><h3>Анимации</h3></div>
+<script type="module">
+// Страница для просмотра модели героя и всех анимаций (без игры). Мышь — вращать, колесо — приблизить.
+// ?sheet — «лист поз»: все анимации в ключевой момент, рядами (для проверки).
+import * as THREE from 'three';
+import { createCharacter, saber, dagger, daggerSheath, papakha } from '../src/character/rig.js';
+import { createAnimator } from '../src/character/controller.js';
+import { CLIP_NAMES } from '../src/character/clips.js';
+
+const sheet = location.search.includes('sheet');
+const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2)); renderer.setSize(innerWidth, innerHeight);
+renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.shadowMap.enabled = true;
+document.body.appendChild(renderer.domElement);
+const scene = new THREE.Scene(); scene.background = new THREE.Color('#2a2622');
+scene.add(new THREE.HemisphereLight('#dfe8ff', '#3a3020', 1.4));
+const sun = new THREE.DirectionalLight('#fff2e0', 2.6); sun.position.set(3, 6, 4); sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
+Object.assign(sun.shadow.camera, { left: -12, right: 12, top: 12, bottom: -12 }); scene.add(sun);
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(60, 60), new THREE.MeshStandardMaterial({ color: '#4a4238', roughness: 1 })); ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
+const cam = new THREE.PerspectiveCamera(35, innerWidth / innerHeight, 0.05, 200);
+
+function makeHero() {
+  const rig = createCharacter({});
+  rig.root.getObjectByName('HeadSocket').add(papakha());
+  const s = saber(); rig.sockets.RightHandSocket.add(s);
+  rig.sockets.BeltWeaponSocket.add(daggerSheath()); rig.sockets.BeltWeaponSocket.add(dagger());
+  rig.grip('Right', 1);
+  rig.root.traverse(o => { if (o.isMesh) o.castShadow = true; });
+  scene.add(rig.root);
+  return { rig, anim: createAnimator(rig.root) };
+}
+const KEY = { Idle: 0.5, Walk: 0.25, Run: 0.25, Sprint: 0.25, JumpStart: 0.9, JumpLoop: 0.5, JumpFall: 0.5, Land: 0.35, Crouch: 0.5, CrouchWalk: 0.25, Dodge: 0.35, Roll: 0.45, LightAttack1: 0.45, LightAttack2: 0.45, LightAttack3: 0.55, HeavyAttack: 0.42, SpinAttack: 0.45, DaggerAttack: 0.5, Block: 0.5, Parry: 0.35, HitFront: 0.3, HitBack: 0.3, HitLeft: 0.3, HitRight: 0.3, Death: 1, Interact: 0.4, Pickup: 0.45, Climb: 0.25, ClimbDown: 0.25 };
+
+if (sheet) {
+  // лист поз: 29 героев сеткой 8×4, каждый в ключевой момент своей анимации, повёрнут на 3/4
+  CLIP_NAMES.forEach((name, i) => {
+    const h = makeHero(), col = i % 8, row = Math.floor(i / 8);
+    h.rig.root.position.set((col - 3.5) * 1.6, 0, row * 2.2 - 3.3); h.rig.root.rotation.y = 0.6;
+    const a = h.anim.actions[name]; a.reset().play(); h.anim.mixer.update(0); a.time = KEY[name] * a.getClip().duration; h.anim.mixer.update(0);
+  });
+  cam.position.set(0, 9, 13); cam.lookAt(0, 0.6, 0);
+  renderer.render(scene, cam); document.title = 'ready';
+} else {
+  const h = makeHero(); let current = 'Idle'; h.anim.play('Idle', { fade: 0 });
+  const ui = document.getElementById('ui');
+  for (const name of CLIP_NAMES) {
+    const b = document.createElement('button'); b.textContent = name;
+    b.onclick = () => { current = name; h.anim.play(name, { restart: true }); [...ui.querySelectorAll('button')].forEach(x => x.classList.toggle('on', x === b)); };
+    ui.appendChild(b);
+  }
+  // однократные анимации после окончания возвращаются в Idle (кроме смерти)
+  h.anim.onFinished((n) => { if (n !== 'Death') setTimeout(() => h.anim.play('Idle'), 300); });
+  let yaw = 0.5, pitch = 0.15, dist = 4.2, drag = false, lx = 0, ly = 0;
+  addEventListener('pointerdown', e => { if (e.target === renderer.domElement) { drag = true; lx = e.clientX; ly = e.clientY; } });
+  addEventListener('pointerup', () => drag = false);
+  addEventListener('pointermove', e => { if (!drag) return; yaw -= (e.clientX - lx) * 0.008; pitch = Math.max(-0.3, Math.min(1.2, pitch + (e.clientY - ly) * 0.006)); lx = e.clientX; ly = e.clientY; });
+  addEventListener('wheel', e => dist = Math.max(1, Math.min(10, dist + e.deltaY * 0.004)));
+  const clock = new THREE.Clock();
+  renderer.setAnimationLoop(() => {
+    const dt = Math.min(0.05, clock.getDelta());
+    h.anim.update(dt); h.rig.clothFollow(); h.rig.updateFace(dt, 0);
+    h.rig.setExpression(/Attack|Hit/.test(current) ? 'anger' : current === 'Block' ? 'focus' : 'neutral');
+    cam.position.set(Math.sin(yaw) * Math.cos(pitch) * dist, 1.1 + Math.sin(pitch) * dist, Math.cos(yaw) * Math.cos(pitch) * dist);
+    cam.lookAt(0, 1.05, 0);
+    renderer.render(scene, cam);
+  });
+}
+addEventListener('resize', () => { renderer.setSize(innerWidth, innerHeight); cam.aspect = innerWidth / innerHeight; cam.updateProjectionMatrix(); });
+</script>
+</body>
+</html>

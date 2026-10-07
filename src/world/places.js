@@ -31,16 +31,51 @@ export function createSerpent() {
   e1.position.set(0.6, 0.5, 1.1); e2.position.set(-0.6, 0.5, 1.1); segs[0].add(e1, e2);
   g.traverse(o => o.castShadow = true);
   let awake = 0, t = 0;
+  // Бой: змей бодрствует → замечает героя → поднимает голову и шипит (предупреждение) → бросок → отходит.
+  // Если герой парировал — змей отшатывается и «оглушён». Убить его нельзя (нужен меч нартов — по сюжету).
+  const st = { mode: 'coil', time: 0, cd: 2, from: new THREE.Vector3(), to: new THREE.Vector3(), struck: false };
+  const local = new THREE.Vector3();
   return {
     object: g,
     wake() { awake = 1; },
-    update(dt) {
-      t += dt;
-      segs.forEach((s, i) => {
+    get awake() { return awake > 0; },
+    headWorld() { return g.localToWorld(segs[0].position.clone()); },
+    update(dt, player, onStrike, onTelegraph) {
+      t += dt; st.time += dt;
+      segs.forEach((s, i) => { // обычное покачивание кольцами
         const a = i * 0.45 + t * (awake ? 1.5 : 0.2);
         const rise = awake ? Math.max(0, 6 - i * 0.6) : 0;
         s.position.set(Math.cos(a) * (2 + i * 0.12), 1 + rise + Math.sin(t * 2 + i) * 0.1 * awake, Math.sin(a) * (2 + i * 0.12));
       });
+      eyeM.color.setRGB(1, 0.35, 0.1).multiplyScalar(st.mode === 'warn' ? 3 + Math.sin(t * 30) : 1.2); // глаза разгораются перед броском
+      if (!awake || !player) return;
+      local.copy(player).add(new THREE.Vector3(0, 1.3, 0)); g.worldToLocal(local);
+      const dist = Math.hypot(local.x, local.z);
+      const head = segs[0].position;
+      if (st.mode === 'coil') {
+        st.cd -= dt;
+        if (dist < 11 && st.cd <= 0) { st.mode = 'warn'; st.time = 0; onTelegraph && onTelegraph(); }
+      } else if (st.mode === 'warn') { // 0.8 c — время среагировать
+        head.y += Math.sin(Math.min(1, st.time / 0.8) * Math.PI / 2) * 1.5;
+        if (st.time > 0.8) { st.mode = 'strike'; st.time = 0; st.from.copy(head); st.to.copy(local); st.struck = false; }
+      } else if (st.mode === 'strike') { // бросок 0.25 с, затем возврат 0.45 с
+        const k = st.time < 0.25 ? st.time / 0.25 : Math.max(0, 1 - (st.time - 0.25) / 0.45);
+        const reachK = Math.min(1, 9 / Math.max(1, st.from.distanceTo(st.to)));
+        head.lerpVectors(st.from, st.from.clone().lerp(st.to, reachK), k * k * (3 - 2 * k));
+        for (let i = 1; i < 6; i++) segs[i].position.lerp(head, (6 - i) / 9 * k);
+        if (!st.struck && st.time >= 0.22) {
+          st.struck = true;
+          const hw = g.localToWorld(head.clone());
+          if (hw.distanceTo(player.clone().add(new THREE.Vector3(0, 1.2, 0))) < 2.6) {
+            const r = onStrike(hw);
+            if (r === 'parry') { st.mode = 'recoil'; st.time = 0; return; }
+          }
+        }
+        if (st.time > 0.7) { st.mode = 'coil'; st.cd = 1.8 + Math.random() * 1.2; }
+      } else if (st.mode === 'recoil') { // отшатнулся после парирования
+        head.y += 1.5; head.x += Math.sin(t * 40) * 0.3 * (1 - st.time / 1.4);
+        if (st.time > 1.4) { st.mode = 'coil'; st.cd = 1.5; }
+      }
     },
   };
 }
@@ -50,11 +85,20 @@ function stone() {
   s.scale.set(1, 1.6, 0.8); s.position.y = 4; s.rotation.set(0.2, 0.5, 0.1);
   const g = new THREE.Group(); g.add(s); return g;
 }
+// Старая сторожевая башня: на верх ведёт деревянная лестница (E — залезть), наверху площадка с зубцами.
 function tower() {
   const g = new THREE.Group(), m = pbr('masonry', { color: '#d6ccb8', repeat: 2 });
-  const t = new THREE.Mesh(new THREE.CylinderGeometry(3, 3.6, 16, 4), m); t.position.y = 7; t.rotation.y = Math.PI / 4;
-  const top = new THREE.Mesh(new THREE.ConeGeometry(3.4, 3, 4), pbr('rock', { color: '#8a8070' })); top.position.y = 16.5; top.rotation.y = Math.PI / 4;
-  g.add(t, top); return g;
+  const t = new THREE.Mesh(new THREE.CylinderGeometry(3.3, 3.6, 15, 4, 1), m); t.position.y = 7.5; t.rotation.y = Math.PI / 4;
+  const floor = new THREE.Mesh(new THREE.BoxGeometry(4.5, 0.3, 4.5), pbr('planks', { color: '#a08060' })); floor.position.y = 14.9; g.add(floor);
+  for (let i = 0; i < 4; i++) for (let k = -2; k <= 2; k++) { // зубцы
+    const c = new THREE.Mesh(new THREE.BoxGeometry(0.7, 1.1, 0.4), m), a = i * Math.PI / 2;
+    c.position.set(Math.cos(a) * 2.25 + Math.sin(a) * k * 1.05, 15.5, Math.sin(a) * 2.25 - Math.cos(a) * k * 1.05); c.rotation.y = -a; if ((k + 2) % 2 === 0) g.add(c);
+  }
+  // лестница на стороне +Z
+  const wood = pbr('bark', { color: '#b89a78' });
+  for (const s of [-0.28, 0.28]) { const r = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 15.6, 6), wood); r.position.set(s, 7.8, 2.85); g.add(r); }
+  for (let y = 0.4; y < 15.4; y += 0.38) { const r = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.6, 5), wood); r.rotation.z = Math.PI / 2; r.position.set(0, y, 2.85); g.add(r); }
+  g.add(t); return g;
 }
 function spring() {
   const g = new THREE.Group();
@@ -111,7 +155,12 @@ export async function createPlaces(scene, terrain) {
     const circle = (lx, lz, r) => { const c = W(lx, lz); C.push({ type: 'circle', x: c.x, z: c.z, r, top: 1e9 }); };
     if (p.type === 'mosque') { box(0, 0, 12.3, 10.3); circle(7, -4, 1.2); }
     else if (p.type === 'shop') box(0, 0, 8.3, 6.3);
-    else if (p.type === 'tower') circle(0, 0, 3.8);
+    else if (p.type === 'tower') { // стены башни сплошные; верх — площадка, на неё ведёт лестница
+      const by = y - 0.5;
+      C.push({ type: 'box', cx: x, cz: z, ang: 0, w: 5.2, d: 5.2, top: by + 14.3 });
+      out[p.id].ladder = { x, z: z + 3.25, y0: terrain.heightAt(x, z + 3.25), y1: by + 15.05, topX: x, topZ: z + 1.2, yaw: Math.PI };
+      out[p.id].platform = { x, z, r: 2.2, y: by + 15.05 };
+    }
     else if (p.type === 'stone') circle(0, 0, 3.4);
     else if (p.type === 'cave') { circle(0, -9, 13.5); for (let i = 0; i < 14; i++) { const a = Math.PI * (0.1 + 0.8 * i / 13); if (Math.abs(Math.cos(a)) > 0.45) circle(Math.cos(a) * 6, 0, 2.2); } }
     else if (p.type === 'pasture') for (let i = 0; i < 40; i++) { if (i % 13) { const a = i / 40 * Math.PI * 2, c = W(Math.cos(a) * 14, Math.sin(a) * 14); C.push({ type: 'box', cx: c.x, cz: c.z, ang: a + Math.PI / 2 + ang, w: 2.3, d: 0.9, top: y + 0.9 }); } }

@@ -1,6 +1,6 @@
 // Рюкзак героя: ячейки (сейчас 20, число задаётся в data/items.json → backpack.slots)
 // и надетые вещи (голова, тело, ноги, рука, шея, пояс). Сохраняется в браузере.
-export const EQUIP_SLOTS = ['head', 'neck', 'body', 'belt', 'hand', 'feet'];
+export const EQUIP_SLOTS = ['head', 'neck', 'body', 'belt', 'hand', 'dagger', 'feet'];
 
 export function createInventory(cfg, onChange = () => {}) {
   const defs = cfg.defs;
@@ -13,6 +13,8 @@ export function createInventory(cfg, onChange = () => {}) {
     try { const old = JSON.parse(localStorage.getItem('inventory')) || {}; for (const id in old) addRaw(id, old[id]); } catch {}
   }
   st.size = Math.max(st.size, cfg.backpack.slots);
+  // старые сохранения: выдать кинжал, если его ещё нет
+  if (st.equip && Object.keys(st.equip).length && !st.equip.dagger && !st.slots.some(x => x && x.id === 'kinjal')) st.equip.dagger = 'kinjal';
   while (st.slots.length < st.size) st.slots.push(null);
   const save = () => { try { localStorage.setItem('backpack', JSON.stringify(st)); } catch {} onChange(); };
 

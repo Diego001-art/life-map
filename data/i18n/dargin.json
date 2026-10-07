@@ -66,5 +66,14 @@
   "slot.hand": "",
   "slot.neck": "",
   "slot.belt": "",
-  "invHint": ""
+  "invHint": "",
+  "item.kinjal": "",
+  "item.shashka": "",
+  "slot.dagger": "",
+  "clickToPlay": "",
+  "died": "",
+  "respawn": "",
+  "climb": "",
+  "hp": "",
+  "serpentImmune": ""
 }

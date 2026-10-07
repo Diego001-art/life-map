@@ -52,5 +52,8 @@ function makeSystem(scene, max, { additive, color, grow, rise, life, size, drift
 export function createEffects(scene) {
   const smoke = makeSystem(scene, 900, { additive: false, color: '#b8b6b2', grow: 5, rise: 1.1, life: 8, size: 2.2, drift: 0.4 });
   const fire = makeSystem(scene, 260, { additive: true, color: '#ff5a1a', grow: -0.6, rise: 1.6, life: 0.9, size: 0.9, drift: 0.25 });
-  return { smoke, fire, update(dt, wind, night) { smoke.mat.uniforms.uDark.value = night; smoke.update(dt, wind); fire.update(dt, wind * 0.2); } };
+  // искры от удара по камню/металлу и пыль с соломой от удара по чучелу
+  const sparks = makeSystem(scene, 200, { additive: true, color: '#ffb040', grow: -0.8, rise: 2.5, life: 0.35, size: 0.18, drift: 7 });
+  const dust = makeSystem(scene, 200, { additive: false, color: '#c8b080', grow: 2, rise: 0.6, life: 1.2, size: 0.5, drift: 2.5 });
+  return { smoke, fire, sparks, dust, update(dt, wind, night) { smoke.mat.uniforms.uDark.value = night; smoke.update(dt, wind); fire.update(dt, wind * 0.2); sparks.update(dt, 0); dust.update(dt, wind * 0.3); } };
 }
