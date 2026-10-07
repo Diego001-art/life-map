@@ -8,7 +8,7 @@
 <script type="importmap">{ "imports": { "three": "./lib/three.module.js" } }</script>
 </head>
 <body>
-<div id="loading">Загрузка села Бутри…</div>
+<div id="loading"><div id="ldBox"><h1>Бутри — легенды гор</h1><div id="ldBar"><i id="ldFill"></i></div><div id="ldText">Загрузка… 0%</div></div></div>
 <div id="menuBg" class="hidden"></div>
 <div id="menu" class="hidden panel">
   <h1 id="mTitle"></h1>
@@ -38,7 +38,7 @@
 <div id="inventory" class="hidden"><h2 id="invTitle"></h2><div id="invList"></div></div>
 <script>
   // Если что-то сломалось — показать ошибку на экране загрузки, а не висеть молча.
-  function showErr(m) { var l = document.getElementById('loading'); if (l) l.innerHTML = 'Ошибка загрузки:<br><small>' + m + '</small><br><small>Пришлите скриншот Claude</small>'; }
+  function showErr(m) { var l = document.getElementById('loading'); if (l) l.querySelector('#ldText').innerHTML = 'Ошибка загрузки:<br><small>' + m + '</small><br><small>Пришлите скриншот Claude</small>'; }
   addEventListener('error', function (e) { showErr(e.message || e.target && e.target.src || 'файл не загрузился'); }, true);
   addEventListener('unhandledrejection', function (e) { showErr(e.reason && (e.reason.stack || e.reason.message) || e.reason); });
   setTimeout(function () { if (document.getElementById('loading')) showErr('слишком долго (браузер не поддерживает игру или медленный интернет)'); }, 60000);

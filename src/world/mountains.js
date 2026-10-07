@@ -6,8 +6,8 @@ export function createMountains(scene, terrain) {
   const ground = new THREE.Mesh(new THREE.RingGeometry(1000, 9000, 48, 1), new THREE.MeshLambertMaterial({ color: '#6f7f45' }));
   ground.rotation.x = -Math.PI / 2; ground.position.y = 0; scene.add(ground);
   // Склоны-"юбка" от края карты к горам.
-  const rock = new THREE.MeshLambertMaterial({ color: '#7d7466', flatShading: true });
-  const green = new THREE.MeshLambertMaterial({ color: '#5f7a42', flatShading: true });
+  const rock = new THREE.MeshLambertMaterial({ color: '#9a958a', flatShading: true });
+  const green = new THREE.MeshLambertMaterial({ color: '#7fae58', flatShading: true });
   const snow = new THREE.MeshLambertMaterial({ color: '#f2f4f7', flatShading: true });
   const rnd = (a, b) => a + Math.random() * (b - a);
   for (let i = 0; i < 70; i++) {

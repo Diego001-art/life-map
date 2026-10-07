@@ -30,25 +30,37 @@ document.body.appendChild(renderer.domElement);
 addEventListener('resize', () => renderer.setSize(innerWidth, innerHeight));
 
 const scene = new THREE.Scene();
-const step = (txt) => { const l = document.getElementById('loading'); if (l) l.textContent = 'Загрузка: ' + txt + '…'; };
-step('тексты');
+// Полоса загрузки в процентах.
+let pct = 0;
+const step = (txt, to) => {
+  pct = to ?? pct;
+  const f = document.getElementById('ldFill'), x = document.getElementById('ldText');
+  if (f) f.style.width = pct + '%';
+  if (x) x.textContent = `${txt}… ${pct}%`;
+};
+// пока ждём сервер карт — проценты медленно ползут, чтобы было видно, что игра не зависла
+const creep = (from, to) => { pct = from; const id = setInterval(() => { if (pct < to) step('Загрузка домов села', pct + 1); }, 250); return () => clearInterval(id); };
+step('Тексты', 5);
 await loadLang();
 hud.refresh();
 
 // Мир
-step('рельеф');
+step('Рельеф гор', 15);
 const terrain = await createTerrain(scene);
 const geo = makeGeo(terrain.lat, terrain.lon);
-step('дома села (до 8 сек)');
+const stopCreep = creep(25, 60);
 const { houses, loaded, clearAround } = await createHouses(scene, terrain, geo);
+stopCreep();
+step('Деревья и горы', 65);
 if (!loaded) hud.toast(t('noHouses'));
 const sunFollow = createSky(scene);
 createMountains(scene, terrain);
-step('места');
+step('Пещера, мечеть, родник', 75);
 const places = await createPlaces(scene, terrain);
 for (const pl of Object.values(places)) if (pl.type !== 'stone') clearAround(pl.pos.x, pl.pos.z, pl.type === 'pasture' ? 16 : 9);
 createTrees(scene, terrain, houses);
 const npcs = await createNpcs(scene, terrain);
+clearAround(0, 0, 8); // место появления героя
 for (const n of npcs.list) clearAround(n.object.position.x, n.object.position.z, 3);
 const animals = createAnimals(scene, terrain, places);
 
@@ -63,7 +75,7 @@ const events = {
   serpentWakes(silent) { const s = places.cave && places.cave.serpent; if (s) { s.object.visible = true; s.wake(); } if (!silent) hud.toast(t('serpentWakes')); },
   fastRun(silent) { player.state.speedBoost = 1.5; if (!silent) hud.toast(t('fastRun')); },
 };
-step('квесты');
+step('Жители и квесты', 85);
 const quests = await createQuests({
   inventory, places, hero,
   onItems: (take, give) => { hud.renderInventory(inventory.all()); if (give) hud.toast(Object.keys(give).map(id => t('received', { item: t('item.' + id) })).join(', ')); },
@@ -111,6 +123,8 @@ createInput({
 });
 const input = createInput({});
 document.getElementById('langBtn').onclick = () => { toggleLang(); hud.refresh(); menu.labels(); hud.quests(quests); hud.renderInventory(inventory.all()); };
+step('Готово', 100);
+await new Promise(r => setTimeout(r, 300));
 hud.done();
 window.game = { player, quests, inventory, hero, npcs, places }; // для отладки в консоли браузера
 menu.show(true);
