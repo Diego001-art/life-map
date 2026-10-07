@@ -57,7 +57,7 @@ export function createStream(scene, terrain, start) {
         vec3 col = mix(deep, light, r * r2 * 0.6 + (1.0 - edge) * 0.35);
         col += vec3(1.0) * pow(r * r2, 8.0) * 0.6;                // блики
         col *= 1.0 - uNight * 0.7;
-        gl_FragColor = vec4(col, 0.55 + (1.0 - edge) * 0.3);
+        gl_FragColor = vec4(pow(col, vec3(2.2)), 0.55 + (1.0 - edge) * 0.3); // цвета заданы в sRGB → в линейные
         #include <fog_fragment>
       }`,
   });

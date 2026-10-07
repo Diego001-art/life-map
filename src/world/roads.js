@@ -4,6 +4,7 @@
 //  - тропинки ведут к особым местам (пещера, камень нарта, башня, родник, пастбище).
 // Если OpenStreetMap загрузился — его улицы рисуются тоже.
 import * as THREE from 'three';
+import { tex } from './textures.js';
 
 const N = 161;            // размер сетки поиска пути (как карта высот)
 const STYLES = {
@@ -84,31 +85,45 @@ export function createRoads(scene, terrain, places, osmLines = []) {
   // 4) Улицы из OpenStreetMap (если загрузились).
   for (const l of osmLines) if (l.length > 1) lines.push({ kind: 'street', pts: l });
 
-  // --- Рисуем полосы, лежащие на земле ---
+  // --- Рисуем полосы, лежащие на земле: текстура щебня с колеями, мягкие травянистые края ---
+  // Каждая точка ленты кладётся по высоте земли (поэтому дорога не висит и не уходит в склон).
   const samples = []; // точки дорог для быстрых проверок «далеко ли до дороги»
+  const roadTex = tex('road');
   for (const kind of ['path', 'street', 'main']) {
-    const st = STYLES[kind], verts = [], cols = [], base = new THREE.Color(st.color);
+    const st = STYLES[kind], verts = [], uvs = [], idx = [];
+    const ACROSS = 4; // поперёк ленты 5 точек — лента повторяет изгибы склона
     for (const { kind: k, pts } of lines) {
       if (k !== kind) continue;
-      for (let i = 0; i < pts.length - 1; i++) {
-        const a = pts[i], b = pts[i + 1], dx = b.x - a.x, dz = b.z - a.z, L = Math.hypot(dx, dz) || 1;
-        const nx = -dz / L * st.width / 2, nz = dx / L * st.width / 2;
-        const y = (x, z) => terrain.heightAt(x, z) + 0.08;
-        const A1 = [a.x + nx, y(a.x + nx, a.z + nz), a.z + nz], A2 = [a.x - nx, y(a.x - nx, a.z - nz), a.z - nz];
-        const B1 = [b.x + nx, y(b.x + nx, b.z + nz), b.z + nz], B2 = [b.x - nx, y(b.x - nx, b.z - nz), b.z - nz];
-        verts.push(...A1, ...A2, ...B1, ...A2, ...B2, ...B1);
-        const c = base.clone().offsetHSL(0, 0, (Math.random() - 0.5) * 0.06);
-        for (let j = 0; j < 6; j++) cols.push(c.r, c.g, c.b);
-        samples.push({ x: a.x, z: a.z, w: st.width / 2, kind });
+      let len = 0;
+      const base = verts.length / 3;
+      for (let i = 0; i < pts.length; i++) {
+        const a = pts[Math.max(0, i - 1)], b = pts[Math.min(pts.length - 1, i + 1)], p = pts[i];
+        const dx = b.x - a.x, dz = b.z - a.z, L = Math.hypot(dx, dz) || 1;
+        if (i) len += Math.hypot(p.x - pts[i - 1].x, p.z - pts[i - 1].z);
+        for (let j = 0; j <= ACROSS; j++) {
+          const t = j / ACROSS - 0.5, w = t * st.width * 1.25; // чуть шире — края растворяются в траве
+          const x = p.x - dz / L * w, z = p.z + dx / L * w;
+          verts.push(x, terrain.heightAt(x, z) + 0.06, z);
+          uvs.push(j / ACROSS, len / (st.width * 1.6));
+        }
+        if (i) for (let j = 0; j < ACROSS; j++) {
+          const r0 = base + (i - 1) * (ACROSS + 1) + j, r1 = base + i * (ACROSS + 1) + j;
+          idx.push(r0, r1, r0 + 1, r0 + 1, r1, r1 + 1);
+        }
+        if (i < pts.length - 1) samples.push({ x: p.x, z: p.z, w: st.width / 2, kind });
       }
     }
     if (!verts.length) continue;
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
-    g.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3));
-    g.computeVertexNormals();
-    const m = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2 - (kind === 'main' ? 2 : kind === 'street' ? 1 : 0) }));
-    m.receiveShadow = true;
+    g.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+    g.setIndex(idx); g.computeVertexNormals();
+    const tint = kind === 'path' ? '#c9ae86' : kind === 'street' ? '#e8e0d4' : '#ffffff';
+    const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({
+      map: roadTex.map, normalMap: roadTex.normalMap, color: tint, roughness: 0.95, transparent: true, depthWrite: false,
+      polygonOffset: true, polygonOffsetFactor: -2 - (kind === 'main' ? 2 : kind === 'street' ? 1 : 0), polygonOffsetUnits: -4,
+    }));
+    m.receiveShadow = true; m.renderOrder = 1;
     scene.add(m);
   }
 

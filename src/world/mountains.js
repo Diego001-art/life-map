@@ -2,6 +2,7 @@
 // Ближе — зелёные склоны и лес, выше — скалы, на вершинах — снег. Дальние хребты тонут в дымке.
 // Дойти туда нельзя (край карты), но видно, что мир продолжается.
 import * as THREE from 'three';
+import { groundMaterial } from './ground.js';
 
 function hash(x, y) { const s = Math.sin(x * 127.1 + y * 311.7) * 43758.5453; return s - Math.floor(s); }
 function noise(x, y) {
@@ -43,21 +44,14 @@ export function createMountains(scene, terrain) {
   geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
   geo.setIndex(idx);
   geo.computeVertexNormals();
-  // цвета по высоте и крутизне
-  const nrm = geo.attributes.normal;
+  // базовый оттенок (детали — траву, скалы, снег — рисует материал земли сам по крутизне и высоте)
   for (let v = 0; v < pos.length / 3; v++) {
-    const x = pos[v * 3], y = pos[v * 3 + 1], z = pos[v * 3 + 2], slope = 1 - nrm.getY(v), n = noise(x / 90, z / 90);
-    c.copy(cGrass);
-    if (y < 650) c.lerp(cForest, THREE.MathUtils.smoothstep(y, 120, 420) * (0.6 + n * 0.4));      // лес на нижних склонах
-    c.lerp(cRock, THREE.MathUtils.smoothstep(y + slope * 600, 500, 900));                           // скалы
-    c.lerp(cRock2, THREE.MathUtils.smoothstep(slope, 0.35, 0.6) * 0.6);
-    const snowLine = 1150 + n * 260;
-    if (y > snowLine - 120) c.lerp(cSnow, THREE.MathUtils.smoothstep(y, snowLine - 120, snowLine + 80) * (1 - THREE.MathUtils.smoothstep(slope, 0.45, 0.7) * 0.7)); // снег
-    c.offsetHSL(0, 0, (n - 0.5) * 0.05);
+    const x = pos[v * 3], z = pos[v * 3 + 2], n = noise(x / 300, z / 300);
+    c.set('#8e9670').lerp(cForest.clone().multiplyScalar(2.2), THREE.MathUtils.smoothstep(pos[v * 3 + 1], 150, 450) * (1 - THREE.MathUtils.smoothstep(pos[v * 3 + 1], 600, 800)) * (0.5 + n * 0.5));
     col.push(c.r, c.g, c.b);
   }
   geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
-  const mesh = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true }));
+  const mesh = new THREE.Mesh(geo, groundMaterial({ scale: 0.03, snowLine: 1150, rockLine: 620 }));
   mesh.receiveShadow = false;
   scene.add(mesh);
 

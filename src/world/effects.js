@@ -22,7 +22,7 @@ function makeSystem(scene, max, { additive, color, grow, rise, life, size, drift
       void main(){ vec2 c = gl_PointCoord - 0.5; float r = length(c); if (r > 0.5) discard;
         float a = smoothstep(0.5, 0.0, r) * (1.0 - vA) * smoothstep(0.0, 0.1, vA);
         vec3 col = ${additive ? 'mix(vec3(1.0,0.9,0.5), uColor, vA)' : 'uColor * (1.0 - uDark * 0.6)'};
-        gl_FragColor = vec4(col, a * ${additive ? '0.9' : '0.45'});
+        gl_FragColor = vec4(col, a * ${additive ? '0.9' : '0.16'}); // дым — полупрозрачные клубы
         #include <fog_fragment>
       }`,
   });
@@ -50,7 +50,7 @@ function makeSystem(scene, max, { additive, color, grow, rise, life, size, drift
 }
 
 export function createEffects(scene) {
-  const smoke = makeSystem(scene, 900, { additive: false, color: '#c9c6c0', grow: 3, rise: 1.4, life: 7, size: 1.4, drift: 0.35 });
+  const smoke = makeSystem(scene, 900, { additive: false, color: '#b8b6b2', grow: 5, rise: 1.1, life: 8, size: 2.2, drift: 0.4 });
   const fire = makeSystem(scene, 260, { additive: true, color: '#ff5a1a', grow: -0.6, rise: 1.6, life: 0.9, size: 0.9, drift: 0.25 });
   return { smoke, fire, update(dt, wind, night) { smoke.mat.uniforms.uDark.value = night; smoke.update(dt, wind); fire.update(dt, wind * 0.2); } };
 }

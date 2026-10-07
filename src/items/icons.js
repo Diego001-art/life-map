@@ -36,10 +36,11 @@ export function portraitFor(npcObject) {
   iconFor({ shape: 'stone', color: '#000' }); // создаёт маленький рендерер, если его ещё нет
   const clone = npcObject.clone(true);
   clone.position.set(0, 0, 0); clone.rotation.set(0, -0.35, 0);
-  clone.traverse(o => { if (o.geometry && o.geometry.type === 'ConeGeometry' && o.position.y > 2.5) o.visible = false; }); // без «!» над головой
+  clone.traverse(o => { if (o.userData && o.userData.marker) o.visible = false; }); // без «!» над головой
   scene.add(clone);
-  const bg = new THREE.Mesh(new THREE.PlaneGeometry(4, 4), new THREE.MeshBasicMaterial({ color: '#2a2018' })); bg.position.set(0, 1.9, -1.2); scene.add(bg);
-  cam.position.set(0.15, 2.0, 1.25); cam.lookAt(0, 1.92, 0);
+  const bg = new THREE.Mesh(new THREE.PlaneGeometry(4, 4), new THREE.MeshBasicMaterial({ color: '#2a2018' })); bg.position.set(0, 1.7, -1.2); scene.add(bg);
+  const hy = 1.72 * clone.scale.y;
+  cam.position.set(0.12, hy + 0.03, 0.62); cam.lookAt(0, hy - 0.01, 0);
   renderer.render(scene, cam);
   scene.remove(clone, bg);
   const url = renderer.domElement.toDataURL();

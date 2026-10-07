@@ -1,16 +1,17 @@
 // Овцы и коровы бродят по пастбищу и у села.
 import * as THREE from 'three';
+import { pbr } from './textures.js';
 
 function sheep() {
-  const g = new THREE.Group(), m = (c) => new THREE.MeshLambertMaterial({ color: c, flatShading: true });
-  const b = new THREE.Mesh(new THREE.DodecahedronGeometry(0.5), m('#f1ede4')); b.scale.set(1.3, 0.9, 0.9); b.position.y = 0.7;
+  const g = new THREE.Group(), m = (c) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.85 });
+  const b = new THREE.Mesh(new THREE.IcosahedronGeometry(0.5, 2), pbr('wool', { color: '#ece6da', normal: 2 })); b.scale.set(1.3, 0.9, 0.9); b.position.y = 0.7;
   const h = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.3, 0.35), m('#2b2522')); h.position.set(0.7, 0.85, 0);
   g.add(b, h);
   for (const [x, z] of [[0.35, 0.2], [0.35, -0.2], [-0.35, 0.2], [-0.35, -0.2]]) { const l = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.4, 0.1), m('#2b2522')); l.position.set(x, 0.2, z); g.add(l); }
   return g;
 }
 function cow() {
-  const g = new THREE.Group(), m = (c) => new THREE.MeshLambertMaterial({ color: c, flatShading: true });
+  const g = new THREE.Group(), m = (c) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.85 });
   const b = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.9, 0.8), m('#6b4a32')); b.position.y = 1.1;
   const h = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, 0.45), m('#5a3a28')); h.position.set(1.1, 1.4, 0);
   g.add(b, h);
@@ -19,7 +20,7 @@ function cow() {
 }
 
 function dog() {
-  const g = new THREE.Group(), m = (c) => new THREE.MeshLambertMaterial({ color: c, flatShading: true }), c = ['#6b4a2e', '#2b2622', '#c9b48a'][Math.floor(Math.random() * 3)];
+  const g = new THREE.Group(), m = (c) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.85 }), c = ['#6b4a2e', '#2b2622', '#c9b48a'][Math.floor(Math.random() * 3)];
   const b = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.32, 0.3), m(c)); b.position.y = 0.5;
   const h = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.28, 0.26), m(c)); h.position.set(0.52, 0.7, 0);
   const sn = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.12, 0.14), m('#1a1a1a')); sn.position.set(0.72, 0.64, 0);
@@ -30,12 +31,12 @@ function dog() {
 }
 function goat() {
   const g = sheep(); g.scale.setScalar(0.85);
-  g.children[0].material = new THREE.MeshLambertMaterial({ color: Math.random() < 0.5 ? '#5a4a3a' : '#d8d0c0', flatShading: true });
-  const horn = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.3, 4), new THREE.MeshLambertMaterial({ color: '#8a7a60' })); horn.position.set(0.68, 1.1, 0.08); horn.rotation.z = -0.6;
+  g.children[0].material = new THREE.MeshStandardMaterial({ color: Math.random() < 0.5 ? '#5a4a3a' : '#d8d0c0' });
+  const horn = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.3, 4), new THREE.MeshStandardMaterial({ color: '#8a7a60' })); horn.position.set(0.68, 1.1, 0.08); horn.rotation.z = -0.6;
   const horn2 = horn.clone(); horn2.position.z = -0.08; g.add(horn, horn2); return g;
 }
 function horse() {
-  const g = new THREE.Group(), m = (c) => new THREE.MeshLambertMaterial({ color: c, flatShading: true }), c = ['#5a3a24', '#2b2220', '#8a6a4a'][Math.floor(Math.random() * 3)];
+  const g = new THREE.Group(), m = (c) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.85 }), c = ['#5a3a24', '#2b2220', '#8a6a4a'][Math.floor(Math.random() * 3)];
   const b = new THREE.Mesh(new THREE.BoxGeometry(2, 0.8, 0.7), m(c)); b.position.y = 1.45;
   const neck = new THREE.Mesh(new THREE.BoxGeometry(0.4, 1, 0.35), m(c)); neck.position.set(1.05, 2, 0); neck.rotation.z = -0.5;
   const h = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.3, 0.3), m(c)); h.position.set(1.45, 2.35, 0); h.rotation.z = -0.3;

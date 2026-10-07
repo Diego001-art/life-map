@@ -1,5 +1,7 @@
 // Дома села: контуры берутся из OpenStreetMap, свои правки — из data/houses/houses.json.
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { pbr } from './textures.js';
 
 const OVERPASS = [
   'https://overpass-api.de/api/interpreter',
@@ -31,15 +33,19 @@ export async function createHouses(scene, terrain, geo, osm, roads) {
   const cfg = await (await fetch('data/houses/houses.json')).json();
   const houses = []; // { id, name, center, radius, mesh }
 
-  // Стена — текстура известняка из фото села (assets/tex/wall.jpg).
-  const wallTex = new THREE.TextureLoader().load('assets/tex/wall.jpg');
-  wallTex.wrapS = wallTex.wrapT = THREE.RepeatWrapping;
-  wallTex.repeat.set(0.42, 0.55);
-  wallTex.colorSpace = THREE.SRGBColorSpace;
-  // Цвета крыш как на фото: в основном серый металл, иногда красные, синие, зелёные.
-  const ROOFS = ['#a8adb1', '#9aa0a4', '#b6babd', '#8d9397', '#a8adb1', '#b5483c', '#3f6f9a', '#4f7a4f', '#7a4a3a'];
+  // Стены — известняковая кладка (текстура рисуется кодом, см. textures.js), несколько оттенков камня.
+  const WALLS = ['#ffffff', '#f2e9d8', '#e6dccb', '#fbf3e4', '#d9d2c4'].map(c => pbr('masonry', { color: c, repeat: 0.3, roughness: 0.92, normal: 1.2 }));
+  // Крыши — гофрированная жесть: в основном серая, иногда красная, синяя, зелёная; кое-где ржавчина.
+  const ROOFS = ['#b4b9bd', '#a5abaf', '#c2c6c9', '#9aa0a4', '#b4b9bd', '#a8443a', '#3f6f9a', '#4f7a4f', '#7a4a3a'];
   const roofMats = {};
-  const roofMat = (c) => roofMats[c] || (roofMats[c] = new THREE.MeshLambertMaterial({ color: c, flatShading: true, side: THREE.DoubleSide }));
+  const roofMat = (c) => {
+    if (roofMats[c]) return roofMats[c];
+    const m = pbr('roof', { color: c, repeat: 0.5, roughness: 0.55, metalness: 0.35, normal: 1.4, side: THREE.DoubleSide });
+    for (const t of [m.map, m.normalMap]) { t.rotation = Math.PI / 2; } // волны жести идут вниз по скату
+    return roofMats[c] = m;
+  };
+  const capMat = pbr('plaster', { color: '#8d8478' });
+  const plinthMat = pbr('rock', { color: '#c9c0b0', repeat: 0.35, normal: 1.5 });
 
   // Наименьший прямоугольник вокруг контура — по нему строим двускатную крышу.
   function orientedBox(pts) {
@@ -78,9 +84,9 @@ export async function createHouses(scene, terrain, geo, osm, roads) {
     const height = floors * 3 + 1.5; // +1.5 м уходит в склон
     const geom = new THREE.ExtrudeGeometry(shape, { depth: height, bevelEnabled: false });
     geom.rotateX(-Math.PI / 2);
-    const wall = new THREE.Color(opts.color || '#ffffff').offsetHSL(0, 0, -Math.random() * 0.12);
     const roofColor = opts.roofColor || ROOFS[Math.floor(Math.random() * ROOFS.length)];
-    const mesh = new THREE.Mesh(geom, [roofMat('#8d8478'), new THREE.MeshLambertMaterial({ color: wall, map: wallTex })]);
+    const wallMat = opts.color ? pbr('masonry', { color: opts.color, repeat: 0.3, roughness: 0.92 }) : WALLS[Math.floor(Math.random() * WALLS.length)];
+    const mesh = new THREE.Mesh(geom, [capMat, wallMat]);
     mesh.position.y = minY - 1.5;
     mesh.castShadow = mesh.receiveShadow = true;
     mesh.userData.houseId = id;
@@ -93,7 +99,17 @@ export async function createHouses(scene, terrain, geo, osm, roads) {
       roof.position.set(box.cx, top, box.cz);
       roof.castShadow = true; scene.add(roof);
     }
-    houses.push({ id, name: opts.name, photo: opts.photo, center: new THREE.Vector3(cx, minY, cz), radius, top, mesh, roof, box, floors, ground: minY, maxY: Math.max(...pts.map(p => terrain.heightAt(p.x, p.z))), gen: id.startsWith('gen-') });
+    // каменный цоколь: на склоне снизу виден фундамент из бутового камня
+    let plinth = null;
+    if (pts.length === 4) {
+      const maxY = Math.max(...pts.map(p => terrain.heightAt(p.x, p.z)));
+      const ph = maxY - minY + 2.1, pg = new THREE.BoxGeometry(box.w + 0.16, ph, box.d + 0.16);
+      const uv = pg.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * (box.w + box.d) / 2, uv.getY(i) * ph); // камни нормального размера
+      plinth = new THREE.Mesh(pg, plinthMat);
+      plinth.position.set(box.cx, minY - 1.5 + ph / 2, box.cz); plinth.rotation.y = -box.ang;
+      plinth.castShadow = plinth.receiveShadow = true; scene.add(plinth);
+    }
+    houses.push({ plinth, id, name: opts.name, photo: opts.photo, center: new THREE.Vector3(cx, minY, cz), radius, top, mesh, roof, box, floors, ground: minY, maxY: Math.max(...pts.map(p => terrain.heightAt(p.x, p.z))), gen: id.startsWith('gen-') });
   }
 
   if (osm) {
@@ -147,8 +163,36 @@ export async function createHouses(scene, terrain, geo, osm, roads) {
   function clearAround(x, z, r) {
     for (let i = houses.length - 1; i >= 0; i--) {
       const h = houses[i];
-      if (Math.hypot(h.center.x - x, h.center.z - z) < r + h.radius) { scene.remove(h.mesh); if (h.roof) scene.remove(h.roof); houses.splice(i, 1); }
+      if (Math.hypot(h.center.x - x, h.center.z - z) < r + h.radius) { scene.remove(h.mesh); if (h.roof) scene.remove(h.roof); if (h.plinth) scene.remove(h.plinth); houses.splice(i, 1); }
     }
   }
-  return { houses, loaded: !!osm, clearAround };
+  // Объединить все стены, цоколи и крыши в несколько больших мешей — так браузеру намного легче рисовать.
+  function bake() {
+    const groups = new Map();
+    const take = (mesh) => {
+      if (!mesh) return;
+      mesh.updateMatrixWorld(true);
+      const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+      let geo = mesh.geometry.clone().applyMatrix4(mesh.matrixWorld);
+      if (geo.index) geo = geo.toNonIndexed();
+      if (mats.length > 1 && geo.groups.length) {
+        for (const gr of geo.groups) { // разрезаем по материалам (стены отдельно, торцы отдельно)
+          const sub = new THREE.BufferGeometry();
+          for (const name of ['position', 'normal', 'uv']) {
+            const at = geo.attributes[name];
+            sub.setAttribute(name, new THREE.BufferAttribute(at.array.slice(gr.start * at.itemSize, (gr.start + gr.count) * at.itemSize), at.itemSize));
+          }
+          add(mats[gr.materialIndex], sub);
+        }
+      } else add(mats[0], geo);
+      scene.remove(mesh);
+    };
+    const add = (mat, geo) => { for (const k of Object.keys(geo.attributes)) if (!['position', 'normal', 'uv'].includes(k)) geo.deleteAttribute(k); geo.clearGroups(); if (!groups.has(mat)) groups.set(mat, []); groups.get(mat).push(geo); };
+    for (const h of houses) { take(h.mesh); take(h.roof); take(h.plinth); }
+    for (const [mat, list] of groups) {
+      const m = new THREE.Mesh(mergeGeometries(list), mat);
+      m.castShadow = m.receiveShadow = true; scene.add(m);
+    }
+  }
+  return { houses, loaded: !!osm, clearAround, bake };
 }

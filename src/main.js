@@ -4,13 +4,17 @@ import { makeGeo } from './world/geo.js';
 import { createTerrain } from './world/terrain.js';
 import { loadOsm, osmRoadLines, createHouses } from './world/houses.js';
 import { createRoads } from './world/roads.js';
-import { createTrees, createDetails, createEagle } from './world/nature.js';
+import { createDetails, createEagle } from './world/nature.js';
 import { createAtmosphere } from './world/atmosphere.js';
 import { createEffects } from './world/effects.js';
 import { createVillage } from './world/village.js';
 import { createStream } from './world/water.js';
 import { env } from './world/env.js';
 import { createVillagers } from './npc/villagers.js';
+import { createTrees } from './world/trees.js';
+import { createRocks, createBoundary } from './world/rocks.js';
+import { createCollision, houseColliders } from './world/collision.js';
+import { createPost } from './world/post.js';
 import { createMountains } from './world/mountains.js';
 import { createPlaces } from './world/places.js';
 import { sectorOf, createMapView } from './world/sectors.js';
@@ -73,7 +77,7 @@ const places = await createPlaces(scene, terrain);
 step('Дороги и тропинки', 50); await frame();
 const roads = createRoads(scene, terrain, places, osmRoadLines(osm, geo));
 step('Дома села', 60); await frame();
-const { houses, clearAround } = await createHouses(scene, terrain, geo, osm, roads);
+const { houses, clearAround, bake: bakeHouses } = await createHouses(scene, terrain, geo, osm, roads);
 if (!osm) hud.toast(t('noHouses'));
 for (const pl of Object.values(places)) if (pl.type !== 'stone') clearAround(pl.pos.x, pl.pos.z, pl.type === 'pasture' ? 16 : 9);
 step('Небо и горы', 68); await frame();
@@ -85,22 +89,33 @@ clearAround(18, 14, 15); // площадь-годекан
 const npcs = await createNpcs(scene, terrain);
 clearAround(0, 0, 8); // место появления героя
 for (const n of npcs.list) clearAround(n.object.position.x, n.object.position.z, 3);
+bakeHouses(); // все дома — в несколько больших мешей
 const village = createVillage(scene, terrain, houses, roads, effects);
 const stream = places.spring ? createStream(scene, terrain, places.spring.pos) : null;
 const eagle = createEagle(scene);
 step('Деревья, трава, ограды', 74); await frame();
-createTrees(scene, terrain, houses, roads);
-createDetails(scene, terrain, houses, roads);
+// Коллизии: дома, детали села, места, деревья, камни, ограды. Граница — кольцо скал.
+const collision = createCollision({ radiusLimit: 965 });
+collision.add(houseColliders(houses));
+collision.add(village.colliders);
+for (const pl of Object.values(places)) collision.add(pl.colliders);
+collision.add(createTrees(scene, terrain, { houses, roads }));
+collision.add(createRocks(scene, terrain, { houses, roads }));
+collision.add(createDetails(scene, terrain, houses, roads));
+createBoundary(scene, terrain);
 step('Жители', 82); await frame();
 const animals = createAnimals(scene, terrain, places, { houses, square: village.square });
-const villagers = createVillagers(scene, terrain, roads, village.square);
+const villagers = createVillagers(scene, terrain, roads, village.square, collision);
+// жители — тоже препятствия (слой NPC): сквозь них не пройти
+for (const n of npcs.list) collision.addDynamic({ type: 'circle', get x() { return n.object.position.x; }, get z() { return n.object.position.z; }, r: 0.4 });
 
 // Герой и системы
 const inventory = createInventory(itemsCfg, () => hud.renderInventory());
 hud.inv = inventory;
-const player = createPlayer(scene, terrain, houses, inventory);
+const player = createPlayer(scene, terrain, collision, inventory);
 hud.onDress = () => player.dress();
-const cam = createCamera(renderer.domElement, terrain, houses);
+const cam = createCamera(renderer.domElement, terrain, collision);
+const post = createPost(renderer, scene, cam.camera);
 const hero = createHero((lvl) => hud.toast(t('levelUp', { lvl })));
 setHeroName(() => hero.name);
 const audio = createAudio();
@@ -160,7 +175,7 @@ document.getElementById('langBtn').onclick = () => { toggleLang(); hud.refresh()
 step('Готово', 100);
 await new Promise(r => setTimeout(r, 400));
 hud.done();
-window.game = { player, quests, inventory, hero, npcs, places, roads, atmo }; // для отладки в консоли браузера
+window.game = { player, quests, inventory, hero, npcs, places, roads, atmo, houses, collision }; // для отладки в консоли браузера
 
 // «Нажмите, чтобы войти» — после нажатия браузер разрешает звук.
 const gate = document.getElementById('gate');
@@ -210,16 +225,17 @@ renderer.setAnimationLoop(() => {
     map.update(p);
     if (!document.getElementById('heroPanel').classList.contains('hidden')) hud.heroPanel(hero);
     // мокрая земля в дождь, звук дождя и костра
-    terrain.material.color.setScalar(1 - env.rain * 0.25);
+    terrain.setWet(env.rain);
     audio.setRain(env.rain);
     const fd = Math.min(...village.fires.map(f => Math.hypot(f.x - p.x, f.z - p.z)));
     audio.setFire(Math.max(0, 1 - fd / 25));
   }
-  renderer.render(scene, cam.camera);
+  post.render();
   // авто-качество
   fpsAcc += dt; fpsN++;
   if (fpsAcc > 3) {
     const fps = fpsN / fpsAcc; fpsAcc = 0; fpsN = 0;
-    if (fps < 38 && quality < RATIOS.length - 1) { quality++; renderer.setPixelRatio(RATIOS[quality]); }
+    // сначала выключаем свечение, потом снижаем чёткость
+    if (fps < 38 && quality < RATIOS.length) { quality++; if (quality === 1) post.enabled = false; else renderer.setPixelRatio(RATIOS[quality - 1]); post.resize(); }
   }
 });
