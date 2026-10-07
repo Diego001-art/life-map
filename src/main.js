@@ -30,16 +30,21 @@ document.body.appendChild(renderer.domElement);
 addEventListener('resize', () => renderer.setSize(innerWidth, innerHeight));
 
 const scene = new THREE.Scene();
+const step = (txt) => { const l = document.getElementById('loading'); if (l) l.textContent = 'Загрузка: ' + txt + '…'; };
+step('тексты');
 await loadLang();
 hud.refresh();
 
 // Мир
+step('рельеф');
 const terrain = await createTerrain(scene);
 const geo = makeGeo(terrain.lat, terrain.lon);
+step('дома села (до 8 сек)');
 const { houses, loaded, clearAround } = await createHouses(scene, terrain, geo);
 if (!loaded) hud.toast(t('noHouses'));
 const sunFollow = createSky(scene);
 createMountains(scene, terrain);
+step('места');
 const places = await createPlaces(scene, terrain);
 for (const pl of Object.values(places)) if (pl.type !== 'stone') clearAround(pl.pos.x, pl.pos.z, pl.type === 'pasture' ? 16 : 9);
 createTrees(scene, terrain, houses);
@@ -58,6 +63,7 @@ const events = {
   serpentWakes(silent) { const s = places.cave && places.cave.serpent; if (s) { s.object.visible = true; s.wake(); } if (!silent) hud.toast(t('serpentWakes')); },
   fastRun(silent) { player.state.speedBoost = 1.5; if (!silent) hud.toast(t('fastRun')); },
 };
+step('квесты');
 const quests = await createQuests({
   inventory, places, hero,
   onItems: (take, give) => { hud.renderInventory(inventory.all()); if (give) hud.toast(Object.keys(give).map(id => t('received', { item: t('item.' + id) })).join(', ')); },

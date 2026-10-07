@@ -10,12 +10,14 @@ async function loadOsm(lat, lon, radius) {
   const q = `[out:json][timeout:25];(way(around:${radius},${lat},${lon})[building];way(around:${radius},${lat},${lon})[highway];);out geom;`;
   // Сначала локальная копия (если её сохранили), потом интернет.
   try { const r = await fetch('data/houses/osm-cache.json'); if (r.ok) return await r.json(); } catch {}
-  for (const url of OVERPASS) {
-    try {
-      const r = await fetch(url, { method: 'POST', body: 'data=' + encodeURIComponent(q) });
-      if (r.ok) return await r.json();
-    } catch {}
-  }
+  // оба сервера сразу, ждём не дольше 8 секунд
+  try {
+    return await Promise.any(OVERPASS.map(async (url) => {
+      const r = await fetch(url, { method: 'POST', body: 'data=' + encodeURIComponent(q), signal: AbortSignal.timeout(8000) });
+      if (!r.ok) throw new Error(r.status);
+      return await r.json();
+    }));
+  } catch {}
   return null;
 }
 
