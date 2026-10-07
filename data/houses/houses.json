@@ -1,0 +1,9 @@
+{
+  "_note": "Свои настройки для домов. Ключ — номер дома из OpenStreetMap (виден в игре сверху, когда подходишь к дому). Можно задать name (название), floors (этажи), color (цвет стен), roof (flat или gable), photo (имя файла из папки photos).",
+  "houses": {
+    "пример_12345678": { "name": "Дом Абдула", "floors": 2, "color": "#c8b89a", "roof": "flat", "photo": "dom1.jpg" }
+  },
+  "_extra_note": "extra — дома, которых нет в OpenStreetMap. x и z — метры от центра села (x на восток, z на юг), w и d — размеры.",
+  "extra": [
+  ]
+}

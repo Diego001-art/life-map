@@ -1,0 +1,82 @@
+{
+  "_note": "Особые места. Положение задаётся сектором (sector) и сдвигом в метрах внутри него (dx — на восток, dz — на юг; 0,0 = центр сектора). type: cave (пещера), stone (камень нарта), tower (старая башня), spring (родник). Типы: cave, stone, tower, spring, pasture, mosque, shop. Если место стоит не там — скажите сектор, и его перенесут.",
+  "places": [
+    {
+      "id": "cave",
+      "type": "cave",
+      "sector": "B2",
+      "dx": 0,
+      "dz": 0,
+      "name": {
+        "ru": "Пещера Горного змея",
+        "dargin": ""
+      }
+    },
+    {
+      "id": "nart",
+      "type": "stone",
+      "sector": "G3",
+      "dx": 0,
+      "dz": 0,
+      "name": {
+        "ru": "Камень нарта",
+        "dargin": ""
+      }
+    },
+    {
+      "id": "tower",
+      "type": "tower",
+      "sector": "C7",
+      "dx": 0,
+      "dz": 0,
+      "name": {
+        "ru": "Старая башня",
+        "dargin": ""
+      }
+    },
+    {
+      "id": "spring",
+      "type": "spring",
+      "sector": "E5",
+      "dx": 0,
+      "dz": 0,
+      "name": {
+        "ru": "Родник",
+        "dargin": ""
+      }
+    },
+    {
+      "id": "pasture",
+      "type": "pasture",
+      "sector": "F6",
+      "dx": 0,
+      "dz": 0,
+      "name": {
+        "ru": "Пастбище",
+        "dargin": ""
+      }
+    },
+    {
+      "id": "mosque",
+      "type": "mosque",
+      "sector": "D4",
+      "dx": 90,
+      "dz": 60,
+      "name": {
+        "ru": "Мечеть (место примерное — уточнить)",
+        "dargin": ""
+      }
+    },
+    {
+      "id": "shop",
+      "type": "shop",
+      "sector": "E4",
+      "dx": -100,
+      "dz": 95,
+      "name": {
+        "ru": "Магазин у Братухи (место примерное — уточнить)",
+        "dargin": ""
+      }
+    }
+  ]
+}

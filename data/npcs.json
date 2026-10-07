@@ -1,0 +1,54 @@
+{
+  "_note": "Жители. Положение — сектор и сдвиг (как в places.json). color — цвет одежды, beard — борода. female — женщина (платок и платье).",
+  "npcs": [
+    {
+      "id": "elder",
+      "sector": "D4",
+      "dx": 110,
+      "dz": 115,
+      "color": "#3b3b55",
+      "beard": true,
+      "name": {
+        "ru": "Старейшина Абакар",
+        "dargin": ""
+      }
+    },
+    {
+      "id": "shepherd",
+      "sector": "E4",
+      "dx": -85,
+      "dz": 100,
+      "color": "#6b5530",
+      "beard": false,
+      "name": {
+        "ru": "Пастух Магомед",
+        "dargin": ""
+      }
+    },
+    {
+      "id": "granny",
+      "sector": "D5",
+      "dx": 95,
+      "dz": -95,
+      "color": "#2a2a30",
+      "beard": false,
+      "name": {
+        "ru": "Бабушка Патимат",
+        "dargin": ""
+      },
+      "female": true
+    },
+    {
+      "id": "smith",
+      "sector": "D5",
+      "dx": 80,
+      "dz": -70,
+      "color": "#4a3a30",
+      "beard": true,
+      "name": {
+        "ru": "Кузнец Гаджи",
+        "dargin": ""
+      }
+    }
+  ]
+}

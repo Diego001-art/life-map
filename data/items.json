@@ -1,0 +1,14 @@
+{
+  "_note": "Предметы для собирательства. count — сколько штук, shape — форма (herb, stone, stick, mushroom, flower, horn, hoof, arrowhead). near — где разбросать: village (по селу), houses (у дворов), place:<id> (вокруг места из places.json). quest: true — предмет крутится, чтобы его было видно.",
+  "items": [
+    { "id": "herb",      "shape": "herb",      "color": "#4f9a3a", "count": 60 },
+    { "id": "stone",     "shape": "stone",     "color": "#9a958c", "count": 50 },
+    { "id": "stick",     "shape": "stick",     "color": "#7a5532", "count": 40 },
+    { "id": "mushroom",  "shape": "mushroom",  "color": "#c0442f", "count": 25 },
+    { "id": "flower",    "shape": "flower",    "color": "#e7d24a", "count": 40 },
+    { "id": "horn",      "shape": "horn",      "color": "#e6dcc0", "count": 16, "near": "houses",      "quest": true },
+    { "id": "hoof",      "shape": "hoof",      "color": "#3a3028", "count": 12, "near": "houses",      "quest": true },
+    { "id": "arrowhead", "shape": "arrowhead", "color": "#b07a3a", "count": 8,  "near": "place:nart", "quest": true },
+    { "id": "wool",      "shape": "stone",     "color": "#f4f1ea", "count": 14, "near": "place:pasture", "quest": true }
+  ]
+}
